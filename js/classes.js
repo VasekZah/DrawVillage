@@ -35,15 +35,12 @@ export class Settler extends Entity {
     draw() {
         PixelDrawer.draw(G.ctx, this);
         if (this.payload) {
-            const carriedItemType = this.payload.type + '_pile';
-            if (PixelDrawer[carriedItemType]) {
-                PixelDrawer.draw(G.ctx, { 
-                    type: carriedItemType, 
-                    x: this.x + 2, 
-                    y: this.y - 8,
-                    radius: 2
-                });
-            }
+            G.ctx.save();
+            G.ctx.translate(Math.floor(this.x), Math.floor(this.y));
+            const color = this.payload.type === 'wood' ? '#8d6e63' : (this.payload.type === 'stone' ? '#90a4ae' : '#c2185b');
+            G.ctx.fillStyle = color;
+            G.ctx.fillRect(2, -8, 4, 4);
+            G.ctx.restore();
         }
     }
 
@@ -87,7 +84,7 @@ export class Settler extends Entity {
                         this.payload = { type: neededResource, amount: amountToCarry };
                         G.state.resources[neededResource] -= amountToCarry;
                         site.enRoute[neededResource] = (site.enRoute[neededResource] || 0) + amountToCarry;
-                        if (!this.findAndSetPath(site, 'depositingAtSite', true)) {
+                        if (!this.findAndSetPath(site, 'depositingAtSite')) {
                             G.state.resources[neededResource] += amountToCarry;
                             site.enRoute[neededResource] -= amountToCarry;
                             this.resetTask();
@@ -121,8 +118,8 @@ export class Settler extends Entity {
         }
     }
 
-    resetTask(keepPayload = false) {
-        if (!keepPayload && this.payload) {
+    resetTask() {
+        if (this.payload) {
             if (this.onPathComplete === 'depositingAtSite' && this.secondaryTarget && this.secondaryTarget.enRoute) {
                    this.secondaryTarget.enRoute[this.payload.type] = Math.max(0, this.secondaryTarget.enRoute[this.payload.type] - this.payload.amount);
             }
@@ -132,17 +129,20 @@ export class Settler extends Entity {
             } else { 
                 G.state.resources[this.payload.type] += this.payload.amount;
             }
-            this.payload = null;
         }
 
         if (this.target) {
-            if (this.target.targetedBy === this) this.target.targetedBy = null;
+            if (this.target.targetedBy === this) {
+                this.target.targetedBy = null;
+            }
             if (Array.isArray(this.target.targetedByHaulers)) {
                 this.target.targetedByHaulers = this.target.targetedByHaulers.filter(s => s !== this);
             }
         }
         if (this.secondaryTarget) {
-             if (this.secondaryTarget.targetedBy === this) this.secondaryTarget.targetedBy = null;
+             if (this.secondaryTarget.targetedBy === this) {
+                this.secondaryTarget.targetedBy = null;
+            }
             if (Array.isArray(this.secondaryTarget.targetedByHaulers)) {
                 this.secondaryTarget.targetedByHaulers = this.secondaryTarget.targetedByHaulers.filter(s => s !== this);
             }
@@ -151,6 +151,7 @@ export class Settler extends Entity {
         this.task = 'idle';
         this.target = null;
         this.secondaryTarget = null;
+        this.payload = null;
         this.path = [];
         this.workProgress = 0;
         this.onPathComplete = 'idle';
@@ -159,6 +160,7 @@ export class Settler extends Entity {
     die() {
         setNotification(`${this.name} zemřel hlady!`);
         if (this.home) this.home.residents = this.home.residents.filter(r => r !== this);
+        
         this.resetTask();
         G.state.settlers = G.state.settlers.filter(s => s !== this);
     }
@@ -234,25 +236,35 @@ export class Settler extends Entity {
     }
     
     findHaulingWork() {
-        const sites = G.state.buildings.filter(b => (b.isUnderConstruction || b.isUpgrading) && !b.hasMaterials() && b.targetedByHaulers.length < 2)
-            .sort((a, b) => Math.hypot(this.x - a.x, this.y - a.y) - Math.hypot(this.x - b.x, this.y - b.y));
+        const sites = G.state.buildings.filter(b =>
+            (b.isUnderConstruction || b.isUpgrading) &&
+            !b.hasMaterials() &&
+            b.targetedByHaulers.length < 2
+        ).sort((a, b) => Math.hypot(this.x - a.x, this.y - a.y) - Math.hypot(this.x - b.x, this.y - b.y));
 
         if (sites.length === 0) return false;
+
         const stockpile = findClosest(this, G.state.buildings, b => b.type === 'stockpile');
         if (!stockpile) return false;
 
         for (const site of sites) {
-            const neededResource = Object.keys(site.cost).find(res => G.state.resources[res] > 0 && site.delivered[res] + (site.enRoute[res] || 0) < site.cost[res]);
+            const neededResource = Object.keys(site.cost).find(res => 
+                G.state.resources[res] > 0 && 
+                site.delivered[res] + (site.enRoute[res] || 0) < site.cost[res]
+            );
+
             if (neededResource) {
-                const settlerPos = worldToGrid(this.x, this.y);
-                const stockpilePos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), settlerPos);
-                const sitePos = findWalkableNeighbor(worldToGrid(site.x, site.y), stockpilePos);
-                if (stockpilePos && sitePos && findPath(settlerPos, stockpilePos) && findPath(stockpilePos, sitePos)) {
-                    if (this.findAndSetPath(stockpile, 'pickupForHauling')) {
-                        this.secondaryTarget = site;
-                        site.targetedByHaulers.push(this);
-                        return true;
-                    }
+                const stockpileGridPos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), worldToGrid(this.x, this.y));
+                const siteGridPos = findWalkableNeighbor(worldToGrid(site.x, site.y), worldToGrid(stockpile.x, stockpile.y));
+                
+                if (!stockpileGridPos || !siteGridPos || !findPath(stockpileGridPos, siteGridPos)) {
+                    continue;
+                }
+
+                if (this.findAndSetPath(stockpile, 'pickupForHauling')) {
+                    this.secondaryTarget = site;
+                    site.targetedByHaulers.push(this);
+                    return true;
                 }
             }
         }
@@ -262,19 +274,29 @@ export class Settler extends Entity {
     findJobSpecificWork() {
         const stockpile = findClosest(this, G.state.buildings, b => b.type === 'stockpile');
         if (!stockpile) return false;
+
         let target;
         switch(this.job) {
             case 'builder':
                 target = findClosest(this, G.state.buildings, b => (b.isUnderConstruction || b.isUpgrading) && b.hasMaterials() && !b.targetedBy);
-                if (target && this.findAndSetPath(target, target.isUnderConstruction ? 'workingOnConstruction' : 'upgradingBuilding')) return true;
+                if (target && this.findAndSetPath(target, target.isUnderConstruction ? 'workingOnConstruction' : 'upgradingBuilding')) {
+                    return true;
+                }
                 break;
             case 'lumberjack':
             case 'miner':
                 const resourceType = this.job === 'lumberjack' ? 'tree' : 'stone';
                 const resources = G.state.worldObjects.filter(o => o.type === resourceType && !o.targetedBy)
                     .sort((a, b) => Math.hypot(this.x - a.x, this.y - a.y) - Math.hypot(this.x - b.x, this.y - b.y));
+                
                 for (const resource of resources) {
-                    if (this.findAndSetPath(resource, 'workingAtResource')) return true;
+                    const resourcePos = findWalkableNeighbor(worldToGrid(resource.x, resource.y), worldToGrid(this.x, this.y));
+                    const stockpilePos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), worldToGrid(resource.x, resource.y));
+                    if(resourcePos && stockpilePos && findPath(resourcePos, stockpilePos)) {
+                        if (this.findAndSetPath(resource, 'workingAtResource')) {
+                            return true;
+                        }
+                    }
                 }
                 break;
             case 'forager':
@@ -305,15 +327,19 @@ export class Settler extends Entity {
     findLaborerWork() {
         const stockpile = findClosest(this, G.state.buildings, b => b.type === 'stockpile');
         if (!stockpile) return false;
-        const resourcePiles = G.state.worldObjects.filter(o => (o.type === 'wood_pile' || o.type === 'stone_pile' || o.type === 'carcass' || o.type === 'food_pile') && !o.targetedBy)
-            .sort((a, b) => Math.hypot(this.x - a.x, this.y - a.y) - Math.hypot(this.x - b.x, this.y - b.y));
+
+        const resourcePiles = G.state.worldObjects.filter(o => 
+            (o.type === 'wood_pile' || o.type === 'stone_pile' || o.type === 'carcass' || o.type === 'food_pile') && !o.targetedBy
+        ).sort((a, b) => Math.hypot(this.x - a.x, this.y - a.y) - Math.hypot(this.x - b.x, this.y - b.y));
 
         for (const pile of resourcePiles) {
-            const settlerPos = worldToGrid(this.x, this.y);
-            const pilePos = findWalkableNeighbor(worldToGrid(pile.x, pile.y), settlerPos);
-            const stockpilePos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), pilePos);
-            if (pilePos && stockpilePos && findPath(settlerPos, pilePos) && findPath(pilePos, stockpilePos)) {
-                if (this.findAndSetPath(pile, 'pickingUpResource')) return true;
+            const pileGridPos = findWalkableNeighbor(worldToGrid(pile.x, pile.y), worldToGrid(this.x, this.y));
+            const stockpileGridPos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), worldToGrid(pile.x, pile.y));
+
+            if (pileGridPos && stockpileGridPos && findPath(pileGridPos, stockpileGridPos)) {
+                if (this.findAndSetPath(pile, 'pickingUpResource')) {
+                    return true;
+                }
             }
         }
         return false;
@@ -341,21 +367,31 @@ export class Settler extends Entity {
     finishWork() {
         if (!this.target) { this.resetTask(); return; }
         const isWorldObjectTask = this.task === 'workingAtResource' || this.task === 'pickingUpResource';
-        if (isWorldObjectTask && !G.state.worldObjects.includes(this.target)) { this.resetTask(); return; }
+        if (isWorldObjectTask && !G.state.worldObjects.includes(this.target)) {
+            this.resetTask();
+            return;
+        }
 
         switch(this.task) {
             case 'workingAtResource':
                 if (this.target.type === 'stump' || !this.target.resource) { this.resetTask(); return; }
+                
                 if (this.target.type === 'bush') {
                     this.payload = { ...this.target.resource };
                     G.state.worldObjects = G.state.worldObjects.filter(o => o !== this.target);
                     const stockpile = findClosest(this, G.state.buildings, b => b.type === 'stockpile');
-                    if (!stockpile || !this.findAndSetPath(stockpile, 'depositingResource', true)) this.resetTask();
+                    if (!stockpile || !this.findAndSetPath(stockpile, 'depositingResource')) {
+                        const droppedPileType = this.payload.type + '_pile';
+                        if (PixelDrawer[droppedPileType]) G.state.worldObjects.push(new WorldObject(droppedPileType, this.x, this.y));
+                        this.resetTask();
+                    }
                     return;
                 }
+
                 const pileType = this.target.resource.type + '_pile';
                 if (PixelDrawer[pileType]) {
-                    const newPile = new WorldObject(pileType, this.target.x, this.target.y, this.target.resource.amount);
+                    const newPile = new WorldObject(pileType, this.target.x, this.target.y);
+                    newPile.resource.amount = this.target.resource.amount;
                     G.state.worldObjects.push(newPile);
                 }
                 if (this.target.type === 'tree') {
@@ -370,7 +406,11 @@ export class Settler extends Entity {
                 this.payload = { ...this.target.resource };
                 G.state.worldObjects = G.state.worldObjects.filter(o => o !== this.target);
                 const stockpile = findClosest(this, G.state.buildings, b => b.type === 'stockpile');
-                if (!stockpile || !this.findAndSetPath(stockpile, 'depositingResource', true)) this.resetTask();
+                if (!stockpile || !this.findAndSetPath(stockpile, 'depositingResource')) {
+                    const droppedPileType = this.payload.type + '_pile';
+                    if (PixelDrawer[droppedPileType]) G.state.worldObjects.push(new WorldObject(droppedPileType, this.x, this.y));
+                    this.resetTask();
+                }
                 break; 
             case 'workingHunting':
                 if (this.target && !this.target.isDead) G.state.projectiles.push(new Projectile(this.x, this.y, this.target));
@@ -398,7 +438,8 @@ export class Settler extends Entity {
                 if (this.target.farmState === 'fallow') {
                     this.target.farmState = 'growing';
                 } else if (this.target.farmState === 'harvestable') {
-                    const foodPile = new WorldObject('food_pile', this.target.x + (Math.random() - 0.5) * 20, this.target.y + (Math.random() - 0.5) * 20, CONFIG.FARM_YIELD);
+                    const foodPile = new WorldObject('food_pile', this.target.x + (Math.random() - 0.5) * 20, this.target.y + (Math.random() - 0.5) * 20);
+                    foodPile.resource.amount = CONFIG.FARM_YIELD;
                     G.state.worldObjects.push(foodPile);
                     this.target.farmState = 'fallow'; this.target.growth = 0;
                 }
@@ -416,19 +457,24 @@ export class Settler extends Entity {
         }
     }
 
-    findAndSetPath(target, onComplete, keepPayload = false) {
+    findAndSetPath(target, onComplete) {
         if (!target) return false;
 
         const start = worldToGrid(this.x, this.y);
         const end = findWalkableNeighbor(worldToGrid(target.x, target.y), start);
+
         if (!end) return false; 
 
         const path = findPath(start, end);
-        const isInRange = Math.hypot(this.x - target.x, this.y - target.y) <= ((target.size ? Math.max(target.size.w, target.size.h) / 2 : target.radius || 0) + CONFIG.INTERACTION_DISTANCE);
 
-        if (!path && !isInRange) return false; 
+        const isInRange = Math.hypot(this.x - target.x, this.y - target.y) <= 
+                          ((target.size ? Math.max(target.size.w, target.size.h) / 2 : target.radius || 0) + CONFIG.INTERACTION_DISTANCE);
 
-        this.resetTask(keepPayload); 
+        if (!path && !isInRange) {
+            return false; 
+        }
+
+        this.resetTask(); 
 
         this.target = target;
         this.onPathComplete = onComplete;
@@ -508,7 +554,7 @@ export class Building extends Entity {
         const status = this.isUpgrading ? 'Vylepšování' : 'Stavba';
         
         if (this.isUnderConstruction || this.isUpgrading) {
-            const needed = Object.entries(cost).map(([res, val]) => `${res.charAt(0).toUpperCase() + res.slice(1)}: ${Math.floor(this.delivered[res])}/${val}`).join(', ');
+            const needed = Object.entries(cost || {}).map(([res, val]) => `${res.charAt(0).toUpperCase() + res.slice(1)}: ${Math.floor(this.delivered[res])}/${val}`).join(', ');
             return `${name} (${status}) - ${needed || 'Připraveno'} [Pravý klik pro zrušení]`;
         }
         if (this.type === 'farm') return `${name} - ${this.farmState} (${Math.floor(this.growth * 100)}%)`;
@@ -516,8 +562,8 @@ export class Building extends Entity {
         return name;
     }
     hasMaterials() { 
-        const cost = this.isUpgrading ? CONFIG.UPGRADES[this.type].cost : this.cost;
-        return Object.keys(cost).every(res => this.delivered[res] >= cost[res]); 
+        const cost = this.isUpgrading ? CONFIG.UPGRADES[this.type]?.cost : this.cost;
+        return Object.keys(cost || {}).every(res => this.delivered[res] >= cost[res]); 
     }
     draw() {
         if (this.isUnderConstruction || this.isUpgrading) {
