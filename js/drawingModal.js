@@ -1,5 +1,3 @@
-// js/drawingModal.js
-
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 
@@ -40,8 +38,7 @@ let isCanvasDirty = false;
 let lastX = 0;
 let lastY = 0;
 
-// Proměnné pro elementy definujeme zde, ale přiřadíme je až v init funkci
-let modal, canvas, ctx, assetListElement, currentAssetNameElement, saveBtn, startBtn, clearBtn;
+let modal, canvas, ctx, assetListElement, currentAssetNameElement, saveBtn, startBtn, clearBtn, exportBtn, importBtn, importFileInput;
 
 function drawLine(x1, y1, x2, y2) {
     ctx.beginPath();
@@ -57,7 +54,6 @@ function drawLine(x1, y1, x2, y2) {
 function updateButtonStates() {
     const assetsDrawn = Object.keys(G.state.userAssets).length;
     const allAssetsDrawn = assetsDrawn >= fullAssetList.length;
-
     saveBtn.disabled = !isCanvasDirty;
     startBtn.disabled = !allAssetsDrawn;
 }
@@ -68,49 +64,29 @@ function setupDrawingCanvas() {
         const event = e.touches ? e.touches[0] : e;
         return [event.clientX - rect.left, event.clientY - rect.top];
     }
-
-    function startDrawing(e) {
-        e.preventDefault();
-        isDrawing = true;
-        isCanvasDirty = true;
-        [lastX, lastY] = getCoords(e);
-        updateButtonStates();
+    const startDrawing = (e) => {
+        e.preventDefault(); isDrawing = true; isCanvasDirty = true;
+        [lastX, lastY] = getCoords(e); updateButtonStates();
     }
-
-    function draw(e) {
-        if (!isDrawing) return;
-        e.preventDefault();
+    const draw = (e) => {
+        if (!isDrawing) return; e.preventDefault();
         const [currentX, currentY] = getCoords(e);
         drawLine(lastX, lastY, currentX, currentY);
         [lastX, lastY] = [currentX, currentY];
     }
-
-    function stopDrawing() {
-        isDrawing = false;
-    }
-
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-
+    const stopDrawing = () => { isDrawing = false; }
+    canvas.addEventListener('mousedown', startDrawing); canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing); canvas.addEventListener('mouseout', stopDrawing);
     canvas.addEventListener('touchstart', startDrawing, { passive: false });
-    canvas.addEventListener('touchmove', draw, { passive: false });
-    canvas.addEventListener('touchend', stopDrawing);
+    canvas.addEventListener('touchmove', draw, { passive: false }); canvas.addEventListener('touchend', stopDrawing);
 }
 
 function renderAssetList() {
     assetListElement.innerHTML = '';
     fullAssetList.forEach((asset, index) => {
-        const li = document.createElement('li');
-        li.textContent = asset.name;
-        li.dataset.index = index;
-        if (index === currentAssetIndex) {
-            li.classList.add('active');
-        }
-        if (G.state.userAssets[asset.id]) {
-            li.classList.add('drawn');
-        }
+        const li = document.createElement('li'); li.textContent = asset.name; li.dataset.index = index;
+        if (index === currentAssetIndex) li.classList.add('active');
+        if (G.state.userAssets[asset.id]) li.classList.add('drawn');
         assetListElement.appendChild(li);
     });
     currentAssetNameElement.textContent = `Kreslení: ${fullAssetList[currentAssetIndex].name}`;
@@ -118,104 +94,94 @@ function renderAssetList() {
 
 function clearCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    isCanvasDirty = false;
-    updateButtonStates();
+    isCanvasDirty = false; updateButtonStates();
 }
 
 function selectAsset(index) {
     if (Object.keys(G.state.userAssets).length >= fullAssetList.length) {
        currentAssetNameElement.textContent = "Vše hotovo! Můžeš spustit hru.";
-       clearCanvas();
-       return;
+       clearCanvas(); return;
     }
-    currentAssetIndex = index;
-    clearCanvas();
-    renderAssetList();
+    currentAssetIndex = index; clearCanvas(); renderAssetList();
+}
+
+function handleExport() {
+    const dataStr = JSON.stringify(G.state.userAssets, null, 2);
+    const dataBlob = new Blob([dataStr], {type: "application/json"});
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.download = 'moje_kresby.json';
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+}
+
+function handleImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            if (typeof importedData !== 'object' || importedData === null) {
+                throw new Error("Neplatný formát souboru.");
+            }
+            Object.assign(G.state.userAssets, importedData);
+            alert(`${Object.keys(importedData).length} kreseb bylo naimportováno!`);
+            renderAssetList();
+            updateButtonStates();
+        } catch (error) {
+            alert("Chyba při importu: " + error.message);
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = null; // Umožní nahrát stejný soubor znovu
 }
 
 export function initDrawingModal(startGameCallback) {
-    // --- DIAGNOSTICKÁ ČÁST ---
-    const elements = {
-        modal: document.getElementById('drawing-modal'),
-        canvas: document.getElementById('drawing-canvas'),
-        assetListElement: document.getElementById('asset-list'),
-        currentAssetNameElement: document.getElementById('current-asset-name'),
-        clearBtn: document.getElementById('clear-drawing-btn'),
-        saveBtn: document.getElementById('save-drawing-btn'),
-        startBtn: document.getElementById('start-game-btn'),
-    };
-
-    for (const key in elements) {
-        if (!elements[key]) {
-            const errorMessage = `KRITICKÁ CHYBA: HTML element s ID "${key.replace('Element', '').replace('Btn', '-btn')}" nebyl nalezen. Aplikace se nemůže spustit. Zkontrolujte soubor index.html.`;
-            console.error(errorMessage);
-            document.body.innerHTML = `<div style="font-family: sans-serif; padding: 2em; background-color: #fff; border: 2px solid red;"><h2>Chyba</h2><p>${errorMessage}</p></div>`;
-            return; // Zastavíme vykonávání skriptu
-        }
-    }
-    // --- KONEC DIAGNOSTICKÉ ČÁSTI ---
-
-    // Přiřazení proměnných
-    ({ modal, canvas, assetListElement, currentAssetNameElement, clearBtn, saveBtn, startBtn } = elements);
+    modal = document.getElementById('drawing-modal'); canvas = document.getElementById('drawing-canvas');
+    assetListElement = document.getElementById('asset-list'); currentAssetNameElement = document.getElementById('current-asset-name');
+    clearBtn = document.getElementById('clear-drawing-btn'); saveBtn = document.getElementById('save-drawing-btn');
+    startBtn = document.getElementById('start-game-btn'); exportBtn = document.getElementById('export-btn');
+    importBtn = document.getElementById('import-btn'); importFileInput = document.getElementById('import-file-input');
     ctx = canvas.getContext('2d');
     
-    // Nastavení funkčnosti
-    renderAssetList();
-    setupDrawingCanvas();
-    updateButtonStates();
+    renderAssetList(); setupDrawingCanvas(); updateButtonStates();
 
     assetListElement.addEventListener('click', (e) => {
-        if (e.target.tagName === 'LI') {
-            selectAsset(parseInt(e.target.dataset.index));
-        }
+        if (e.target.tagName === 'LI') selectAsset(parseInt(e.target.dataset.index));
     });
-
     clearBtn.addEventListener('click', clearCanvas);
+    exportBtn.addEventListener('click', handleExport);
+    importBtn.addEventListener('click', () => importFileInput.click());
+    importFileInput.addEventListener('change', handleImport);
 
     saveBtn.addEventListener('click', () => {
         if (!isCanvasDirty) return;
         const currentAsset = fullAssetList[currentAssetIndex];
-        G.state.userAssets[currentAsset.id] = canvas.toDataURL();
-        renderAssetList(); 
-
-        let nextIndex = currentAssetIndex;
+        G.state.userAssets[currentAsset.id] = canvas.toDataURL(); renderAssetList();
+        let nextIndex = -1;
         for (let i = 1; i <= fullAssetList.length; i++) {
             const potentialIndex = (currentAssetIndex + i) % fullAssetList.length;
             if (!G.state.userAssets[fullAssetList[potentialIndex].id]) {
-                nextIndex = potentialIndex;
-                break;
-            }
-            if (i === fullAssetList.length) {
-                nextIndex = -1; // Vše je hotovo
+                nextIndex = potentialIndex; break;
             }
         }
-        
         updateButtonStates();
-        if (nextIndex !== -1) {
-            selectAsset(nextIndex);
-        } else {
-            currentAssetNameElement.textContent = "Vše hotovo! Můžeš spustit hru.";
-            clearCanvas();
-        }
+        if (nextIndex !== -1) selectAsset(nextIndex);
+        else { currentAssetNameElement.textContent = "Vše hotovo! Můžeš spustit hru."; clearCanvas(); }
     });
 
     startBtn.addEventListener('click', () => {
         if (startBtn.disabled) return;
-        modal.style.display = 'none';
-        document.getElementById('game-container').style.display = 'flex';
-
+        modal.style.display = 'none'; document.getElementById('game-container').style.display = 'flex';
         const promises = Object.entries(G.state.userAssets).map(([id, dataUrl]) => {
             return new Promise((resolve, reject) => {
                 const img = new Image();
-                img.onload = () => {
-                    G.state.loadedUserAssets[id] = img;
-                    resolve();
-                };
-                img.onerror = reject;
-                img.src = dataUrl;
+                img.onload = () => { G.state.loadedUserAssets[id] = img; resolve(); };
+                img.onerror = reject; img.src = dataUrl;
             });
         });
-
         Promise.all(promises).then(startGameCallback);
     });
 }
