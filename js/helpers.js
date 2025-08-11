@@ -17,8 +17,14 @@ export function screenToWorld(x, y) {
 }
 
 export function setNotification(message, duration = 3000) { 
-    G.state.notifications.message = message; 
-    G.state.notifications.timer = duration; 
+    if (G.ui && G.ui.notificationArea) {
+        G.ui.notificationArea.textContent = message;
+        setTimeout(() => {
+            if (G.ui.notificationArea.textContent === message) {
+                G.ui.notificationArea.textContent = '';
+            }
+        }, duration);
+    }
 }
 
 export function findClosest(entity, list, condition = () => true, maxDist = Infinity) {
@@ -98,8 +104,8 @@ export function assignHomes() {
     G.state.settlers.forEach(s => s.home = null);
 
     const allHuts = G.state.buildings.filter(b => (b.type === 'hut' || b.type === 'stone_house') && !b.isUnderConstruction && !b.isUpgrading);
-    const unsettledAdults = G.state.settlers.filter(s => !s.isChild);
-    const unsettledChildren = G.state.settlers.filter(s => s.isChild);
+    const unsettledAdults = G.state.settlers.filter(s => !s.isChild && !s.home);
+    const unsettledChildren = G.state.settlers.filter(s => s.isChild && !s.home);
 
     for (const hut of allHuts) {
         const capacity = CONFIG.BUILDINGS[hut.type].housing;
