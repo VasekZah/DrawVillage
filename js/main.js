@@ -66,7 +66,6 @@ function init() {
 
     G.state.settlers.push(new Settler('Jan', centerX, centerY), new Settler('Eva', centerX + 30, centerY), new Settler('Adam', centerX - 30, centerY));
     const stockpile = new Building('stockpile', centerX, centerY + 50);
-    stockpile.isUnderConstruction = false; // Stockpiles are built instantly
     G.state.buildings.push(stockpile);
     
     for (let i = 0; i < 200; i++) G.state.worldObjects.push(new WorldObject('tree', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
@@ -132,9 +131,20 @@ function populateUI() {
 }
 
 let lastTime = 0;
+let timeAccumulator = 0;
+const aDay = CONFIG.DAY_LENGTH_MS;
+
 function gameLoop(timestamp) {
     const deltaTime = timestamp - lastTime || 0;
     lastTime = timestamp;
+
+    timeAccumulator += deltaTime;
+    while (timeAccumulator >= aDay) {
+        dailyUpdate();
+        timeAccumulator -= aDay;
+    }
+    G.state.timeOfDay = timeAccumulator / aDay;
+
     update(deltaTime); 
     draw();
     requestAnimationFrame(gameLoop);
@@ -148,7 +158,7 @@ function dailyUpdate() {
     if (state.settlers.length < totalHousingCapacity) {
         const fertileHuts = state.buildings.filter(b => (b.type === 'hut' || b.type === 'stone_house') && b.reproductionCooldown <= 0 && b.residents.filter(r => !r.isChild).length >= 2);
         if (fertileHuts.length > 0) {
-            const home = fertileHuts[0];
+            const home = fertileHuts[Math.floor(Math.random() * fertileHuts.length)];
             const newChild = new Settler(`Dítě ${state.settlers.length + 1}`, home.x, home.y, true);
             home.residents.push(newChild);
             newChild.home = home;
@@ -176,57 +186,50 @@ function dailyUpdate() {
 }
 
 function update(deltaTime) {
-    const { state } = G;
-    const oldTimeOfDay = state.timeOfDay;
-    state.timeOfDay = (state.timeOfDay + deltaTime / CONFIG.DAY_LENGTH_MS) % 1;
-    if (state.timeOfDay < oldTimeOfDay) { 
-        dailyUpdate();
-    }
-
-    updateCamera(); 
+    updateCamera(deltaTime); 
     assignJobs();
 
-    state.settlers.forEach(s => s.update(deltaTime));
-    state.worldObjects.forEach(o => o.update());
-    state.buildings.forEach(b => b.update?.(deltaTime));
-    state.animals.forEach(a => a.update());
-    state.projectiles = state.projectiles.filter(p => p.update());
+    G.state.settlers.forEach(s => s.update(deltaTime));
+    G.state.worldObjects.forEach(o => o.update());
+    G.state.buildings.forEach(b => b.update?.(deltaTime));
+    G.state.animals.forEach(a => a.update(deltaTime));
+    G.state.projectiles = G.state.projectiles.filter(p => p.update(deltaTime));
     
     updateHoveredObject();
 }
 
 function assignJobs() {
     const { state } = G;
-    const currentJobs = Object.keys(CONFIG.JOBS).reduce((acc, key) => ({...acc, [key]: 0 }), { laborer: 0 });
-    state.settlers.forEach(s => { if(!s.isChild) currentJobs[s.job]++; });
+    const availableAdults = state.settlers.filter(s => !s.isChild);
+    const jobCounts = availableAdults.reduce((acc, s) => {
+        acc[s.job] = (acc[s.job] || 0) + 1;
+        return acc;
+    }, {});
+    
+    Object.keys(CONFIG.JOBS).forEach(jobId => {
+        const currentCount = jobCounts[jobId] || 0;
+        const quota = state.jobQuotas[jobId];
+        let diff = quota - currentCount;
 
-    for (const jobType of Object.keys(CONFIG.JOBS).sort((a,b) => (CONFIG.JOBS[a].priority || 99) - (CONFIG.JOBS[b].priority || 99))) {
-        // Assign workers to jobs if quota is higher than current
-        while (currentJobs[jobType] < state.jobQuotas[jobType] && currentJobs.laborer > 0) {
-            const laborer = state.settlers.find(s => s.job === 'laborer' && !s.isChild);
-            if (laborer) { 
-                laborer.job = jobType; 
-                laborer.resetTask(); 
-                currentJobs.laborer--; 
-                currentJobs[jobType]++; 
-            } else break;
+        if (diff > 0) { // Need to assign more
+            const laborers = availableAdults.filter(s => s.job === 'laborer');
+            for(let i=0; i < Math.min(diff, laborers.length); i++) {
+                laborers[i].job = jobId;
+                laborers[i].resetTask();
+            }
+        } else if (diff < 0) { // Need to unassign
+            const workers = availableAdults.filter(s => s.job === jobId);
+            for(let i=0; i < Math.min(-diff, workers.length); i++) {
+                workers[i].job = 'laborer';
+                workers[i].resetTask();
+            }
         }
-        // Remove workers from jobs if quota is lower than current
-        while (currentJobs[jobType] > state.jobQuotas[jobType]) {
-            const worker = state.settlers.find(s => s.job === jobType && !s.isChild);
-            if (worker) { 
-                worker.job = 'laborer'; 
-                worker.resetTask(); 
-                currentJobs.laborer++; 
-                currentJobs[jobType]--; 
-            } else break;
-        }
-    }
+    });
 }
 
-function updateCamera() {
+function updateCamera(deltaTime) {
     const { state } = G;
-    const panSpeed = CONFIG.CAMERA_PAN_SPEED / state.camera.zoom;
+    const panSpeed = (CONFIG.CAMERA_PAN_SPEED / state.camera.zoom) * (deltaTime / 16.67);
     if (state.keysPressed['w']) state.camera.y -= panSpeed;
     if (state.keysPressed['s']) state.camera.y += panSpeed;
     if (state.keysPressed['a']) state.camera.x -= panSpeed;
@@ -266,9 +269,9 @@ function drawGroundTile(x, y) {
     const tile = G.state.grid[y][x];
     const wear = tile.wear;
     
-    const grassCol = [76, 112, 69]; // Richer green
-    const wornCol = [120, 108, 75]; // More yellow/brown
-    const pathCol = [93, 80, 65];   // Darker path
+    const grassCol = [76, 112, 69];
+    const wornCol = [120, 108, 75];
+    const pathCol = [93, 80, 65];  
     
     let r, g, b;
     if (wear < 128) {
@@ -376,14 +379,16 @@ function updateUIDisplay() {
     ui.settlers.textContent = G.state.settlers.length;
     ui.housing.textContent = G.state.buildings.reduce((sum, b) => sum + ((b.type === 'hut' || b.type === 'stone_house') && !b.isUnderConstruction && !b.isUpgrading ? CONFIG.BUILDINGS[b.type].housing : 0), 0);
     
-    let adultCount = G.state.settlers.filter(s => !s.isChild).length;
-    let assignedJobs = Object.values(G.state.jobQuotas).reduce((a, b) => a + b, 0);
-    document.getElementById('laborerCount').textContent = adultCount - assignedJobs;
+    const jobCounts = G.state.settlers.filter(s => !s.isChild).reduce((acc, s) => {
+        acc[s.job] = (acc[s.job] || 0) + 1;
+        return acc;
+    }, {});
+    
+    document.getElementById('laborerCount').textContent = jobCounts['laborer'] || 0;
 
     Object.keys(CONFIG.JOBS).forEach(jobId => {
-        const count = G.state.jobQuotas[jobId];
         const el = document.getElementById(`${jobId}Count`);
-        if (el) el.textContent = count;
+        if (el) el.textContent = G.state.jobQuotas[jobId];
 
         const jobInfo = CONFIG.JOBS[jobId];
         const jobControlEl = document.getElementById(`job-control-${jobId}`);
@@ -391,11 +396,7 @@ function updateUIDisplay() {
             const hasRequiredBuilding = G.state.buildings.some(b => b.type === jobInfo.requires && !b.isUnderConstruction);
             jobControlEl.querySelectorAll('button').forEach(btn => {
                 btn.disabled = !hasRequiredBuilding;
-                if (!hasRequiredBuilding) {
-                    btn.title = `Vyžaduje postavit: ${CONFIG.BUILDINGS[jobInfo.requires].name}`;
-                } else {
-                    btn.title = '';
-                }
+                btn.title = btn.disabled ? `Vyžaduje postavit: ${CONFIG.BUILDINGS[jobInfo.requires].name}` : '';
             });
             if (!hasRequiredBuilding && G.state.jobQuotas[jobId] > 0) {
                 G.state.jobQuotas[jobId] = 0;
@@ -505,10 +506,16 @@ function addEventListeners() {
         e.preventDefault();
         const worldPosBeforeZoom = screenToWorld(e.offsetX, e.offsetY);
         const zoomAmount = e.deltaY * -0.001;
-        G.state.camera.zoom = Math.max(CONFIG.MIN_ZOOM, Math.min(CONFIG.MAX_ZOOM, G.state.camera.zoom + zoomAmount));
-        const worldPosAfterZoom = screenToWorld(e.offsetX, e.offsetY);
-        G.state.camera.x += worldPosBeforeZoom.x - worldPosAfterZoom.x;
-        G.state.camera.y += worldPosAfterZoom.y - worldPosBeforeZoom.y;
+        const oldZoom = G.state.camera.zoom;
+        G.state.camera.zoom = Math.max(CONFIG.MIN_ZOOM, Math.min(CONFIG.MAX_ZOOM, oldZoom + zoomAmount));
+
+        // This keeps the point under the cursor stationary
+        if (G.state.camera.zoom !== oldZoom) {
+            const worldPosAfterZoom = screenToWorld(e.offsetX, e.offsetY);
+            G.state.camera.x += worldPosBeforeZoom.x - worldPosAfterZoom.x;
+            // CORRECTED Y-AXIS CALCULATION
+            G.state.camera.y += worldPosBeforeZoom.y - worldPosAfterZoom.y;
+        }
     });
 }
 
