@@ -1,6 +1,15 @@
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 
+export function getUiIcon(resourceType) {
+    switch (resourceType) {
+        case 'wood': return '🌲';
+        case 'stone': return '💎';
+        case 'food': return '🥩';
+        default: return '❓';
+    }
+}
+
 export function worldToGrid(x, y) { 
     return { 
         x: Math.floor(x / CONFIG.GRID_SIZE), 
@@ -19,7 +28,8 @@ export function screenToWorld(x, y) {
 export function setNotification(message, duration = 3000) { 
     if (G.ui && G.ui.notificationArea) {
         G.ui.notificationArea.textContent = message;
-        setTimeout(() => {
+        if(G.notificationTimeout) clearTimeout(G.notificationTimeout);
+        G.notificationTimeout = setTimeout(() => {
             if (G.ui.notificationArea.textContent === message) {
                 G.ui.notificationArea.textContent = '';
             }
@@ -29,12 +39,12 @@ export function setNotification(message, duration = 3000) {
 
 export function findClosest(entity, list, condition = () => true, maxDist = Infinity) {
     let closest = null;
-    let minDist = maxDist;
+    let minDistSq = maxDist * maxDist;
     list.forEach(item => {
         if (condition(item)) {
-            const dist = Math.hypot(entity.x - item.x, entity.y - item.y);
-            if (dist < minDist) {
-                minDist = dist;
+            const distSq = (entity.x - item.x)**2 + (entity.y - item.y)**2;
+            if (distSq < minDistSq) {
+                minDistSq = distSq;
                 closest = item;
             }
         }
@@ -64,8 +74,10 @@ export function findWalkableNeighbor(gridPos, startPos) {
     
     const queue = [node];
     const visited = new Set([`${node.x},${node.y}`]);
+    const maxSearch = 200; // Limit search area to prevent lag
+    let count = 0;
     
-    while (queue.length > 0) {
+    while (queue.length > 0 && count < maxSearch) {
         const current = queue.shift();
         const neighbors = getNeighborsForBFS(current);
         
@@ -77,6 +89,7 @@ export function findWalkableNeighbor(gridPos, startPos) {
                 queue.push(neighbor);
             }
         }
+        count++;
     }
     return null;
 }
@@ -107,22 +120,15 @@ export function assignHomes() {
     const unsettledAdults = G.state.settlers.filter(s => !s.isChild && !s.home);
     const unsettledChildren = G.state.settlers.filter(s => s.isChild && !s.home);
 
+    const settlersToHouse = [...unsettledAdults, ...unsettledChildren];
+    
     for (const hut of allHuts) {
         const capacity = CONFIG.BUILDINGS[hut.type].housing;
         while(hut.residents.length < capacity) {
-            const settler = unsettledAdults.shift();
+            const settler = settlersToHouse.shift();
             if (!settler) break;
             hut.residents.push(settler);
             settler.home = hut;
-        }
-    }
-     for (const hut of allHuts) {
-        const capacity = CONFIG.BUILDINGS[hut.type].housing;
-        while(hut.residents.length < capacity) {
-            const child = unsettledChildren.shift();
-            if (!child) break;
-            hut.residents.push(child);
-            child.home = hut;
         }
     }
 }
