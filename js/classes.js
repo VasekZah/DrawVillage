@@ -317,7 +317,7 @@ export class Task {
             case 'plant_tree': return `Planting a tree`;
             case 'work_at_building': return `Working at ${CONFIG.BUILDING_INFO[this.target.type].name}`;
             case 'wander': return `Wandering`;
-            default: return 'Working';
+            default: return 'Working on a task';
         }
     }
     isJobAllowed(job) {
