@@ -23,10 +23,8 @@ function createColorizedSprite(sourceImage, color) {
 }
 
 export const SpriteDrawer = {
-    // Načte VŠECHNY sprity a PŘEDEM VYTVOŘÍ barevné varianty
     loadAllSprites() {
         const promises = [];
-        // 1. Načteme všechny základní sprity z PIXEL_ASSETS
         for (const [id, dataUrl] of Object.entries(PIXEL_ASSETS)) {
             const promise = new Promise((resolve, reject) => {
                 const img = new Image();
@@ -40,62 +38,37 @@ export const SpriteDrawer = {
             promises.push(promise);
         }
 
-        // 2. Počkáme, až se všechny základní sprity načtou
         return Promise.all(promises).then(() => {
-            console.log("Base sprites loaded. Now pre-rendering color variants...");
-            // 3. Nyní, když máme základní 'settler' sprite, vytvoříme barevné varianty
             const settlerTemplate = spriteCache.get('settler');
             if (settlerTemplate) {
                 for (const jobId in CONFIG.JOBS) {
                     const job = CONFIG.JOBS[jobId];
                     const colorizedSprite = createColorizedSprite(settlerTemplate, job.color);
-                    // Uložíme je pod klíčem 'settler_builder', 'settler_lumberjack' atd.
                     spriteCache.set(`settler_${jobId}`, colorizedSprite);
                 }
             }
-            console.log("Color variants pre-rendered.");
         });
     },
 
-    // Maximálně zjednodušená vykreslovací funkce
+    // --- TESTOVACÍ VYKRESLOVACÍ FUNKCE ---
     draw(ctx, entity) {
-        let spriteId;
+        // Tento kód se teď spustí pro každou entitu ve hře.
+        // Ignoruje pozici entity a kreslí vždy do levého horního rohu.
 
-        // Určíme, jaké ID má sprite, který chceme vykreslit
-        if (entity.type === 'settler' && entity.job !== 'unemployed') {
-            spriteId = `settler_${entity.job}`;
-        } else if (entity.type === 'resource_pile') {
-            spriteId = `${entity.resourceType}_pile`;
+        // TEST 1: Vykreslíme jednoduchý tvar
+        ctx.fillStyle = 'red';
+        ctx.fillRect(10, 10, 32, 32);
+
+        // TEST 2: Pokusíme se vykreslit načtený sprite
+        const treeSprite = spriteCache.get('tree');
+        if (treeSprite && treeSprite.complete) {
+            ctx.imageSmoothingEnabled = false;
+            // Vykreslíme strom hned vedle čtverce, zvětšený, aby byl vidět
+            ctx.drawImage(treeSprite, 50, 10, 32, 32); 
         } else {
-            spriteId = entity.type;
+            // Pokud by se sprite nenašel, vykreslíme modrý čtverec
+            ctx.fillStyle = 'blue';
+            ctx.fillRect(50, 10, 32, 32);
         }
-        
-        const sprite = spriteCache.get(spriteId);
-        
-        if (!sprite) {
-            return; // Pokud sprite neexistuje, nic nekreslíme
-        }
-        
-        ctx.save();
-        ctx.translate(Math.floor(entity.x), Math.floor(entity.y));
-
-        const drawWidth = entity.radius * 2.5;
-        const drawHeight = (sprite.height / sprite.width) * drawWidth;
-        const drawY = -drawHeight + (entity.radius * 0.4);
-
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(sprite, -drawWidth / 2, drawY, drawWidth, drawHeight);
-
-        // Vykreslení nákladu
-        if (entity.task?.payload) {
-            const payloadSprite = spriteCache.get(`${entity.task.payload.type}_carry`);
-            if (payloadSprite) {
-                const payloadWidth = drawWidth * 0.75;
-                const payloadHeight = (payloadSprite.height / payloadSprite.width) * payloadWidth;
-                ctx.drawImage(payloadSprite, -payloadWidth / 2, drawY - payloadHeight / 3, payloadWidth, payloadHeight);
-            }
-        }
-        
-        ctx.restore();
     }
 };
