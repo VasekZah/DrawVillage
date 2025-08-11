@@ -1,3 +1,5 @@
+// js/drawingModal.js
+
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 
@@ -38,13 +40,8 @@ let isCanvasDirty = false;
 let lastX = 0;
 let lastY = 0;
 
-const modal = document.getElementById('drawing-modal');
-const canvas = document.getElementById('drawing-canvas');
-const ctx = canvas.getContext('2d');
-const assetListElement = document.getElementById('asset-list');
-const currentAssetNameElement = document.getElementById('current-asset-name');
-const saveBtn = document.getElementById('save-drawing-btn');
-const startBtn = document.getElementById('start-game-btn');
+// Získáváme elementy až uvnitř inicializační funkce, aby byl DOM zaručeně načtený
+let modal, canvas, ctx, assetListElement, currentAssetNameElement, saveBtn, startBtn;
 
 function drawLine(x1, y1, x2, y2) {
     ctx.beginPath();
@@ -58,8 +55,14 @@ function drawLine(x1, y1, x2, y2) {
 }
 
 function updateButtonStates() {
+    const assetsDrawn = Object.keys(G.state.userAssets).length;
+    const allAssetsDrawn = assetsDrawn >= fullAssetList.length;
+
     saveBtn.disabled = !isCanvasDirty;
-    startBtn.disabled = Object.keys(G.userAssets).length < fullAssetList.length;
+    startBtn.disabled = !allAssetsDrawn;
+
+    // Pro ladění - otevři si v prohlížeči konzoli (F12)
+    console.log(`Assets drawn: ${assetsDrawn}/${fullAssetList.length}. Start button enabled: ${!startBtn.disabled}`);
 }
 
 function setupDrawingCanvas() {
@@ -108,7 +111,7 @@ function renderAssetList() {
         if (index === currentAssetIndex) {
             li.classList.add('active');
         }
-        if (G.userAssets[asset.id]) {
+        if (G.state.userAssets[asset.id]) {
             li.classList.add('drawn');
         }
         assetListElement.appendChild(li);
@@ -123,12 +126,27 @@ function clearCanvas() {
 }
 
 function selectAsset(index) {
+    // Pokud jsou všechny assety hotové, nevybírej další
+    if (Object.keys(G.state.userAssets).length >= fullAssetList.length) {
+       currentAssetNameElement.textContent = "Vše hotovo! Můžeš spustit hru.";
+       clearCanvas();
+       return;
+    }
     currentAssetIndex = index;
     clearCanvas();
     renderAssetList();
 }
 
 export function initDrawingModal(startGameCallback) {
+    // Přiřazení elementů
+    modal = document.getElementById('drawing-modal');
+    canvas = document.getElementById('drawing-canvas');
+    ctx = canvas.getContext('2d');
+    assetListElement = document.getElementById('asset-list');
+    currentAssetNameElement = document.getElementById('current-asset-name');
+    saveBtn = document.getElementById('save-drawing-btn');
+    startBtn = document.getElementById('start-game-btn');
+    
     renderAssetList();
     setupDrawingCanvas();
     updateButtonStates();
@@ -144,29 +162,46 @@ export function initDrawingModal(startGameCallback) {
     saveBtn.addEventListener('click', () => {
         if (!isCanvasDirty) return;
         const currentAsset = fullAssetList[currentAssetIndex];
-        G.userAssets[currentAsset.id] = canvas.toDataURL();
+        G.state.userAssets[currentAsset.id] = canvas.toDataURL();
+        renderAssetList(); // Znovu vykreslí seznam pro označení jako "hotovo"
 
-        let nextIndex = (currentAssetIndex + 1) % fullAssetList.length;
-        while(G.userAssets[fullAssetList[nextIndex].id] && nextIndex !== currentAssetIndex) {
-            nextIndex = (nextIndex + 1) % fullAssetList.length;
+        let nextIndex = currentAssetIndex;
+        let allDone = false;
+        // Najdi další nenakreslený asset
+        for (let i = 1; i <= fullAssetList.length; i++) {
+            const potentialIndex = (currentAssetIndex + i) % fullAssetList.length;
+            if (!G.state.userAssets[fullAssetList[potentialIndex].id]) {
+                nextIndex = potentialIndex;
+                break;
+            }
+            // Pokud jsme prošli celý seznam a nenašli nic, je hotovo
+            if (i === fullAssetList.length) {
+                allDone = true;
+            }
         }
-        selectAsset(nextIndex);
+        
         updateButtonStates();
+        selectAsset(nextIndex);
+
     });
 
     startBtn.addEventListener('click', () => {
-        if (Object.keys(G.userAssets).length < fullAssetList.length) return;
+        if (startBtn.disabled) return;
 
         modal.style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
 
-        const promises = Object.entries(G.userAssets).map(([id, dataUrl]) => {
-            return new Promise((resolve) => {
+        const promises = Object.entries(G.state.userAssets).map(([id, dataUrl]) => {
+            return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => {
-                    G.loadedUserAssets[id] = img;
+                    G.state.loadedUserAssets[id] = img;
                     resolve();
                 };
+                img.onerror = () => {
+                    console.error(`Failed to load image for asset: ${id}`);
+                    reject(new Error(`Image load error for ${id}`));
+                }
                 img.src = dataUrl;
             });
         });
