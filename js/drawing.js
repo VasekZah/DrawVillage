@@ -1,57 +1,117 @@
 import { G } from './globals.js';
+import { CONFIG } from './config.js';
+import { Humanoid } from './classes.js';
+import { PIXEL_ASSETS } from './pixel-assets.js';
 
-export const OutlineDrawer = {
-    colors: {
-        fill: '#f7fafc',
-        stroke: '#2d3748',
-        ground: '#e2e8f0',
-        groundDetail: '#edf2f7',
-        placeholder: '#f56565'
-    },
-    createGrassPattern(ctx) {
-        const patternCanvas = document.createElement('canvas');
-        const patternCtx = patternCanvas.getContext('2d');
-        patternCanvas.width = 32;
-        patternCanvas.height = 32;
-        patternCtx.fillStyle = this.colors.ground;
-        patternCtx.fillRect(0,0,32,32);
-        patternCtx.strokeStyle = this.colors.groundDetail;
-        patternCtx.lineWidth = 1;
-        for(let i=0; i<20; i++){
-            const x = Math.random()*32; const y = Math.random()*32;
-            patternCtx.beginPath();
-            patternCtx.moveTo(x, y);
-            patternCtx.lineTo(x + (Math.random() - 0.5) * 4, y + (Math.random() - 0.5) * 4);
-            patternCtx.stroke();
+const spriteCache = new Map();
+const imagePromises = new Map();
+
+function loadImageFromDataURL(id, dataUrl) {
+    if (imagePromises.has(id)) {
+        return imagePromises.get(id);
+    }
+    const promise = new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            spriteCache.set(id, img);
+            resolve(img);
+        };
+        img.onerror = () => reject(`Failed to load image from data URL: ${id}`);
+        img.src = dataUrl;
+    });
+    imagePromises.set(id, promise);
+    return promise;
+}
+
+function colorizeSprite(sourceImage, color) {
+    const cacheKey = `${sourceImage.src.substring(22, 52)}-${color}`;
+    if (spriteCache.has(cacheKey)) {
+        return spriteCache.get(cacheKey);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = sourceImage.width;
+    canvas.height = sourceImage.height;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.drawImage(sourceImage, 0, 0);
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    spriteCache.set(cacheKey, canvas);
+    return canvas;
+}
+
+export const SpriteDrawer = {
+    loadAllSprites() {
+        const promises = [];
+        for (const [id, dataUrl] of Object.entries(PIXEL_ASSETS)) {
+            if (id === 'settler' || id === 'child') { // Načteme jen šablony
+                 promises.push(loadImageFromDataURL(id, dataUrl));
+            }
         }
-        G.state.grassPattern = ctx.createPattern(patternCanvas, 'repeat');
+        return Promise.all(promises);
     },
+
     draw(ctx, entity) {
+        let spriteId = entity.type;
+        if (entity.type === 'resource_pile') {
+            spriteId = `${entity.resourceType}_pile`;
+        } else if (entity.size) { // Je to budova
+            spriteId = entity.type;
+        }
+
+        let spriteData = PIXEL_ASSETS[spriteId];
+        if (!spriteData) return;
+
+        let sprite = spriteCache.get(spriteId);
+        if (!sprite) {
+             const img = new Image();
+             img.src = spriteData;
+             spriteCache.set(spriteId, img);
+             sprite = img;
+        }
+
+        if(!sprite.complete) return; // Pokud se obrázek ještě nenačetl, přeskočit
+        
         ctx.save();
         ctx.translate(Math.floor(entity.x), Math.floor(entity.y));
 
-        const assetKey = entity.type === 'resource_pile' ? entity.resourceType : entity.type;
-        const img = G.state.loadedUserAssets[assetKey];
+        if (entity instanceof Humanoid && entity.type === 'settler' && entity.job !== 'unemployed') {
+            const jobColor = CONFIG.JOBS[entity.job]?.color;
+            const templateSprite = spriteCache.get('settler');
+            if (jobColor && templateSprite) {
+                sprite = colorizeSprite(templateSprite, jobColor);
+            }
+        } else if (entity.type === 'child') {
+            sprite = spriteCache.get('child');
+        }
+        
+        const drawWidth = entity.radius * 2.5;
+        const drawHeight = (sprite.height / sprite.width) * drawWidth;
+        const drawY = -drawHeight + (entity.radius * 0.4);
 
-        if (img) {
-            const drawWidth = entity.radius * 2.5;
-            // The height is calculated based on the new, cropped aspect ratio
-            const drawHeight = (img.height / img.width) * drawWidth;
-            // The drawing is now tight in the image, so we place the bottom of the image
-            // near the entity's y-origin to make it look like it's standing on the ground.
-            // A small positive offset to radius makes it sit nicely on the 'ground line'.
-            ctx.drawImage(img, -drawWidth / 2, -drawHeight + (entity.radius * 0.2), drawWidth, drawHeight);
-        } else {
-            // Fallback display if an image is missing
-            ctx.strokeStyle = this.colors.placeholder;
-            ctx.fillStyle = this.colors.placeholder;
-            ctx.lineWidth = 2;
-            const r = entity.radius;
-            ctx.strokeRect(-r, -r, r * 2, r * 2);
-            ctx.font = `${r}px Inter`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('?', 0, 0);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(sprite, -drawWidth / 2, drawY, drawWidth, drawHeight);
+
+        if (entity.task?.payload) {
+            const payloadSpriteId = `${entity.task.payload.type}_carry`;
+            const payloadSpriteData = PIXEL_ASSETS[payloadSpriteId];
+            if (payloadSpriteData) {
+                let payloadSprite = spriteCache.get(payloadSpriteId);
+                if (!payloadSprite) {
+                    const img = new Image();
+                    img.src = payloadSpriteData;
+                    spriteCache.set(payloadSpriteId, img);
+                    payloadSprite = img;
+                }
+                if (payloadSprite.complete) {
+                    const payloadWidth = drawWidth * 0.75;
+                    const payloadHeight = (payloadSprite.height / payloadSprite.width) * payloadWidth;
+                    ctx.drawImage(payloadSprite, -payloadWidth / 2, drawY - payloadHeight / 3, payloadWidth, payloadHeight);
+                }
+            }
         }
         ctx.restore();
     }
