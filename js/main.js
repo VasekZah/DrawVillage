@@ -7,7 +7,7 @@ import { screenToWorld, addEntity, removeEntity, setNotification, addBuilding, f
 import { initDrawingModal } from './drawingModal.js';
 import { getAssetImg } from './uiHelpers.js';
 
-// --- INICIALIZACE ---
+// --- INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
     Object.assign(G, {
         gameCanvas: document.getElementById('gameCanvas'),
