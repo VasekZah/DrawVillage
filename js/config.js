@@ -17,18 +17,18 @@ export const CONFIG = {
         foresterLodge: { wood: 40, stone: 10 },
     },
     BUILDING_INFO: {
-        hut: { name: 'Hut', size: { w: 48, h: 48 }, housing: 2, description: 'Basic housing for 2 settlers.' },
+        hut: { name: 'Hut', size: { w: 48, h: 48 }, housing: 2, description: 'Provides basic housing for 2 settlers.' },
         stockpile: { name: 'Stockpile', size: { w: 64, h: 64 }, description: 'Stores all types of resources.' },
         mine: { name: 'Mine', size: { w: 64, h: 48 }, description: 'Generates stone slowly when worked.' },
         farm: { name: 'Farm', size: { w: 96, h: 64 }, description: 'Allows growing food. Unlocks the Farmer job.' },
         foresterLodge: { name: 'Forester Lodge', size: { w: 56, h: 56 }, description: 'Foresters plant new trees nearby. Unlocks the Forester job.' },
     },
     JOBS: {
-        builder: { name: 'Builder', description: 'Constructs buildings.' },
-        lumberjack: { name: 'Lumberjack', description: 'Chops down trees.' },
+        builder: { name: 'Builder', description: 'Constructs new buildings.' },
+        lumberjack: { name: 'Lumberjack', description: 'Chops down mature trees for wood.' },
         gatherer: { name: 'Gatherer', description: 'Gathers berries from bushes.' },
-        miner: { name: 'Miner', description: 'Mines stone from deposits or in a mine.' },
-        farmer: { name: 'Farmer', description: 'Plants and harvests crops on farms. Requires a Farm.' },
-        forester: { name: 'Forester', description: 'Plants new trees. Requires a Forester Lodge.' },
+        miner: { name: 'Miner', description: 'Mines stone from deposits or works in a Mine.' },
+        farmer: { name: 'Farmer', description: 'Plants, tends, and harvests crops on farms. Requires a Farm.' },
+        forester: { name: 'Forester', description: 'Plants new trees near their lodge. Requires a Forester Lodge.' },
     }
 };
