@@ -26,4 +26,3 @@ canvas.build-mode { cursor: crosshair; }
 #asset-list li.active { background-color: #4299e1; color: white; }
 #asset-list li.drawn { font-style: italic; color: #718096; }
 #asset-list li.drawn.active { color: white; }
-
