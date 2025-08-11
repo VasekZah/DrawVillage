@@ -1,14 +1,15 @@
-import { state, CONFIG, ctx } from './config.js';
+import { G } from './globals.js';
+import { CONFIG } from './config.js';
 import { OutlineDrawer } from './drawing.js';
-import { findClosestEntity, removeEntity, findWalkableNeighbor, worldToGrid, addEntity, setNotification } from './helpers.js';
+import { findClosestEntity, removeEntity, findWalkableNeighbor, worldToGrid, addEntity, setNotification, isTargeted } from './helpers.js';
 import { findPath } from './pathfinding.js';
 import { TaskActions } from './taskLogic.js';
 
 // --- CORE CLASSES ---
 class Entity {
-    constructor(type, x, y) { this.id = state.nextId++; this.type = type; this.x = x; this.y = y; this.radius = 16; }
+    constructor(type, x, y) { this.id = G.state.nextId++; this.type = type; this.x = x; this.y = y; this.radius = 16; }
     draw() {
-        OutlineDrawer.draw(ctx, this);
+        OutlineDrawer.draw(G.ctx, this);
     }
     update(deltaTime) {}
     getTooltip() { return this.type; }
@@ -38,7 +39,7 @@ class Humanoid extends Entity {
         }
     }
     findFood() {
-        if (state.resources.food > 0) {
+        if (G.state.resources.food > 0) {
             const stockpile = findClosestEntity(this, e => e.type === 'stockpile' && e.status === 'operational');
             if (stockpile) {
                 this.setTask(new Task('eat', stockpile));
@@ -134,12 +135,12 @@ class Humanoid extends Entity {
     die() {
         setNotification(`${this.type === 'settler' ? 'Settler' : 'Child'} died of starvation!`);
         if (this.task) {
-            if (this.task.payload) state.resources[this.task.payload.type] += this.task.payload.amount;
+            if (this.task.payload) G.state.resources[this.task.payload.type] += this.task.payload.amount;
             this.task.status = 'failed';
         }
         this.finishTask();
         if (this.homeId) {
-            const home = state.buildings.find(b => b.id === this.homeId);
+            const home = G.state.buildings.find(b => b.id === this.homeId);
             if (home) home.residents = home.residents.filter(id => id !== this.id);
         }
         removeEntity(this);
@@ -164,7 +165,7 @@ export class Settler extends Humanoid {
             }
         }
 
-        const availableTask = state.tasks.find(t => t.status === 'pending' && t.isJobAllowed(this.job) && t.canBeReached(this));
+        const availableTask = G.state.tasks.find(t => t.status === 'pending' && t.isJobAllowed(this.job) && t.canBeReached(this));
         if (availableTask) {
             this.setTask(availableTask);
             return;
@@ -212,7 +213,7 @@ export class Child extends Humanoid {
         const newSettler = new Settler(this.x, this.y);
         newSettler.homeId = this.homeId;
         if (newSettler.homeId) {
-            const home = state.buildings.find(b => b.id === newSettler.homeId);
+            const home = G.state.buildings.find(b => b.id === newSettler.homeId);
             if (home) {
                 home.residents = home.residents.filter(id => id !== this.id);
                 home.residents.push(newSettler.id);
@@ -302,7 +303,7 @@ export class WorldObject extends Entity {
 
 export class Task {
     constructor(type, target, options = {}) {
-        this.id = state.nextId++; this.type = type; this.target = target; this.options = options;
+        this.id = G.state.nextId++; this.type = type; this.target = target; this.options = options;
         this.assignee = null; this.status = 'pending';
         this.stage = 'initial'; this.payload = null;
         this.originalTarget = null; this.workTimer = 0;
