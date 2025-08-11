@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
             timeControls: document.getElementById('time-controls'),
         },
         state: {
-            resources: { wood: 50, stone: 20, food: 40 },
+            resources: { wood: 50, stone: 20, food: 40 }, // Vráceno na původní hodnoty
             entities: [], settlers: [], buildings: [], worldObjects: [], tasks: [], grid: [],
             camera: { x: CONFIG.WORLD_SIZE / 2, y: CONFIG.WORLD_SIZE / 2, zoom: 1.2 },
             mouse: { x: 0, y: 0, worldX: 0, worldY: 0 },
@@ -41,15 +41,28 @@ document.addEventListener('DOMContentLoaded', () => {
     init();
 });
 
-function spawnObjects(count, type, minDistance) {
+// Upravená funkce pro generování objektů, která bere v úvahu "zakázané zóny"
+function spawnObjects(count, type, minDistance, exclusionZones = []) {
     let placed = 0;
     let attempts = 0;
     const maxAttempts = count * 20;
+
     while (placed < count && attempts < maxAttempts) {
         const x = (Math.random() * 0.9 + 0.05) * CONFIG.WORLD_SIZE;
         const y = (Math.random() * 0.9 + 0.05) * CONFIG.WORLD_SIZE;
+
         const closest = findClosestEntity({ x, y }, () => true, minDistance);
-        if (!closest) {
+        
+        let isInExclusionZone = false;
+        for(const zone of exclusionZones) {
+            if (x > zone.x - zone.radius && x < zone.x + zone.radius &&
+                y > zone.y - zone.radius && y < zone.y + zone.radius) {
+                isInExclusionZone = true;
+                break;
+            }
+        }
+
+        if (!closest && !isInExclusionZone) {
             addEntity(new WorldObject(type, x, y));
             placed++;
         }
@@ -80,8 +93,11 @@ function init() {
     stockpile.buildProgress = 100;
     addBuilding(stockpile);
 
-    spawnObjects(150, 'tree', 25);
-    spawnObjects(80, 'stone', 30);
+    // Vytvoříme zónu kolem skladiště, kde se nic negeneruje
+    const exclusionZone = { x: stockpile.x, y: stockpile.y, radius: stockpile.radius + 40 };
+
+    spawnObjects(150, 'tree', 25, [exclusionZone]);
+    spawnObjects(80, 'stone', 30, [exclusionZone]);
 
     addEventListeners();
     setInterval(manageTasks, 1000);
