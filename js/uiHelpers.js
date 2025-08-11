@@ -1,7 +1,8 @@
+import { spriteCache } from './drawing.js';
+
 const uiIconCache = new Map();
 
-// Tato funkce nyní vrací data URL z cachovaného <canvas> elementu
-export function getUiIcon(spriteCache, name, classes = 'icon') {
+export function getUiIcon(name, classes = 'icon') {
     if (uiIconCache.has(name)) {
         return `<img src="${uiIconCache.get(name)}" class="${classes}" alt="${name} icon" />`;
     }
