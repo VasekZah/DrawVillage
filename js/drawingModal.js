@@ -45,67 +45,48 @@ function updateButtonStates() {
     startBtn.disabled = !allAssetsDrawn;
 }
 
-// Rewritten drawing logic for smoother and thicker lines
+// --- REPAIRED DRAWING LOGIC ---
 function setupDrawingCanvas() {
-    ctx.lineWidth = 8; // Increased pen size for better visibility
+    ctx.lineWidth = 8;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.strokeStyle = '#2d3748';
-
-    let points = [];
 
     const getCoords = (e) => {
         const rect = canvas.getBoundingClientRect();
         const event = e.touches ? e.touches[0] : e;
         return [event.clientX - rect.left, event.clientY - rect.top];
-    }
+    };
 
     const startDrawing = (e) => {
         e.preventDefault();
+        
         // If the canvas was showing a preview, clear it before starting a new drawing.
         if (!hasNewStrokes) {
-            clearCanvas(true);
+            clearCanvas(true); // Internal call, doesn't reset the flag
         }
+
         isDrawing = true;
         hasNewStrokes = true;
-        points = [getCoords(e)];
         updateButtonStates();
+
+        const [x, y] = getCoords(e);
+        ctx.beginPath(); // Start a new, separate line path
+        ctx.moveTo(x, y);
     };
 
     const draw = (e) => {
         if (!isDrawing) return;
         e.preventDefault();
-        points.push(getCoords(e));
-
-        // Redraw the entire line smoothly for a better feel
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.beginPath();
-        if (points.length < 2) return;
-
-        ctx.moveTo(points[0][0], points[0][1]);
-
-        for (let i = 1; i < points.length - 2; i++) {
-            const xc = (points[i][0] + points[i + 1][0]) / 2;
-            const yc = (points[i][1] + points[i + 1][1]) / 2;
-            ctx.quadraticCurveTo(points[i][0], points[i][1], xc, yc);
-        }
-        if (points.length > 2) {
-             ctx.quadraticCurveTo(
-                points[points.length - 2][0],
-                points[points.length - 2][1],
-                points[points.length - 1][0],
-                points[points.length - 1][1]
-            );
-        } else if (points.length > 1) {
-            ctx.lineTo(points[points.length-1][0], points[points.length-1][1]);
-        }
-        ctx.stroke();
+        const [x, y] = getCoords(e);
+        ctx.lineTo(x, y); // Add a new point to the current line
+        ctx.stroke();     // Draw the new segment without clearing the canvas
     };
 
     const stopDrawing = () => {
         if (!isDrawing) return;
         isDrawing = false;
-        points = []; // Clear points after drawing stroke
+        // The line is now committed to the canvas.
     };
     
     canvas.addEventListener('mousedown', startDrawing);
@@ -140,7 +121,6 @@ function clearCanvas(isInternalCall = false) {
     }
 }
 
-// --- NEW --- Shows a preview of the saved drawing
 function showPreview(assetId) {
     const img = new Image();
     img.onload = () => {
@@ -178,7 +158,6 @@ function selectAsset(index) {
     updateButtonStates();
 }
 
-// --- NEW --- Crops the drawing to its content before saving
 function cropAndSave() {
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = pixels.data;
@@ -282,7 +261,6 @@ export function initDrawingModal(startGameCallback) {
         });
     });
 }
-// handleImport needs to call selectAsset to show a preview of the first undrawn item.
 function handleImport(event) {
     const file = event.target.files[0];
     if (!file) return;
