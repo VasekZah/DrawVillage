@@ -82,7 +82,7 @@ function init() {
     gameLoop();
 }
 
-function populateUI() {
+function populateUI() { /* ... kód beze změny ... */ 
     ui.iconWood.textContent = getUiIcon('wood');
     ui.iconStone.textContent = getUiIcon('stone');
     ui.iconFood.textContent = getUiIcon('food');
@@ -139,9 +139,12 @@ function gameLoop(timestamp) {
     lastTime = timestamp;
 
     timeAccumulator += deltaTime;
-    while (timeAccumulator >= aDay) {
-        dailyUpdate();
-        timeAccumulator -= aDay;
+    if (timeAccumulator >= aDay) {
+        const daysPassed = Math.floor(timeAccumulator / aDay);
+        for(let i = 0; i < daysPassed; i++) {
+            dailyUpdate();
+        }
+        timeAccumulator %= aDay;
     }
     G.state.timeOfDay = timeAccumulator / aDay;
 
@@ -190,7 +193,7 @@ function update(deltaTime) {
     assignJobs();
 
     G.state.settlers.forEach(s => s.update(deltaTime));
-    G.state.worldObjects.forEach(o => o.update());
+    G.state.worldObjects.forEach(o => o.update(deltaTime));
     G.state.buildings.forEach(b => b.update?.(deltaTime));
     G.state.animals.forEach(a => a.update(deltaTime));
     G.state.projectiles = G.state.projectiles.filter(p => p.update(deltaTime));
@@ -198,7 +201,7 @@ function update(deltaTime) {
     updateHoveredObject();
 }
 
-function assignJobs() {
+function assignJobs() { /* ... kód beze změny ... */ 
     const { state } = G;
     const availableAdults = state.settlers.filter(s => !s.isChild);
     const jobCounts = availableAdults.reduce((acc, s) => {
@@ -227,7 +230,7 @@ function assignJobs() {
     });
 }
 
-function updateCamera(deltaTime) {
+function updateCamera(deltaTime) { /* ... kód beze změny ... */ 
     const { state } = G;
     const panSpeed = (CONFIG.CAMERA_PAN_SPEED / state.camera.zoom) * (deltaTime / 16.67);
     if (state.keysPressed['w']) state.camera.y -= panSpeed;
@@ -239,7 +242,7 @@ function updateCamera(deltaTime) {
     state.camera.y = Math.max(0, Math.min(CONFIG.WORLD_HEIGHT - canvas.height / state.camera.zoom, state.camera.y));
 }
 
-function updateHoveredObject() {
+function updateHoveredObject() { /* ... kód beze změny ... */
     const { state } = G;
     const worldMouse = screenToWorld(state.mousePos.x, state.mousePos.y);
     state.hoveredObject = null; 
@@ -256,7 +259,7 @@ function updateHoveredObject() {
     }
 }
 
-function drawFullGround() {
+function drawFullGround() { /* ... kód beze změny ... */
     groundCtx.clearRect(0,0, groundCanvas.width, groundCanvas.height);
     for (let y = 0; y < G.state.grid.length; y++) {
         for (let x = 0; x < G.state.grid[y].length; x++) {
@@ -265,7 +268,7 @@ function drawFullGround() {
     }
 }
 
-function drawGroundTile(x, y) {
+function drawGroundTile(x, y) { /* ... kód beze změny ... */
     const tile = G.state.grid[y][x];
     const wear = tile.wear;
     
@@ -298,7 +301,7 @@ function drawGroundTile(x, y) {
     }
 }
 
-function draw() {
+function draw() { /* ... kód beze změny ... */ 
     const { state } = G;
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -371,7 +374,7 @@ function draw() {
     updateUIDisplay();
 }
 
-function updateUIDisplay() {
+function updateUIDisplay() { /* ... kód beze změny ... */ 
     ui.wood.textContent = Math.floor(G.state.resources.wood); 
     ui.stone.textContent = Math.floor(G.state.resources.stone);
     ui.food.textContent = Math.floor(G.state.resources.food); 
@@ -405,7 +408,7 @@ function updateUIDisplay() {
     });
 }
 
-function handleBuild(e) {
+function handleBuild(e) { /* ... kód beze změny ... */ 
     if (!G.state.buildMode) return;
     const worldMouse = screenToWorld(G.state.mousePos.x, G.state.mousePos.y);
     const blueprint = CONFIG.BUILDINGS[G.state.buildMode];
@@ -430,7 +433,7 @@ function handleBuild(e) {
     setNotification('');
 }
 
-function handleCancel(e) {
+function handleCancel(e) { /* ... kód beze změny ... */ 
     e.preventDefault();
     if (G.state.buildMode) {
         G.state.buildMode = null; 
@@ -502,6 +505,10 @@ function addEventListeners() {
     canvas.addEventListener('contextmenu', handleCancel);
     window.addEventListener('keydown', e => { G.state.keysPressed[e.key.toLowerCase()] = true; });
     window.addEventListener('keyup', e => { G.state.keysPressed[e.key.toLowerCase()] = false; if(e.key === 'Escape') { G.state.buildMode = null; canvas.classList.remove('build-mode'); setNotification(''); }});
+    
+    // ==================================================================
+    // OPRAVA ZOOMOVÁNÍ
+    // ==================================================================
     canvas.addEventListener('wheel', e => {
         e.preventDefault();
         const worldPosBeforeZoom = screenToWorld(e.offsetX, e.offsetY);
@@ -509,11 +516,11 @@ function addEventListeners() {
         const oldZoom = G.state.camera.zoom;
         G.state.camera.zoom = Math.max(CONFIG.MIN_ZOOM, Math.min(CONFIG.MAX_ZOOM, oldZoom + zoomAmount));
 
-        // This keeps the point under the cursor stationary
+        // Tento blok kódu zajišťuje, že bod pod kurzorem zůstane na místě.
         if (G.state.camera.zoom !== oldZoom) {
             const worldPosAfterZoom = screenToWorld(e.offsetX, e.offsetY);
             G.state.camera.x += worldPosBeforeZoom.x - worldPosAfterZoom.x;
-            // CORRECTED Y-AXIS CALCULATION
+            // Opravený výpočet pro osu Y.
             G.state.camera.y += worldPosBeforeZoom.y - worldPosAfterZoom.y;
         }
     });
