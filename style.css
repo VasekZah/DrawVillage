@@ -22,7 +22,20 @@ canvas.build-mode { cursor: crosshair; }
 /* Drawing Modal Styles */
 #drawing-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 2000; display: flex; align-items: center; justify-content: center; }
 #drawing-canvas { border: 2px solid #4a5568; cursor: crosshair; touch-action: none; }
-#asset-list li { cursor: pointer; padding: 8px; border-radius: 6px; }
+#asset-list li { cursor: pointer; padding: 8px; border-radius: 6px; transition: background-color 0.2s, color 0.2s; border-left: 4px solid transparent; }
 #asset-list li.active { background-color: #4299e1; color: white; }
-#asset-list li.drawn { font-style: italic; color: #718096; }
-#asset-list li.drawn.active { color: white; }
+
+/* --- IMPROVED STYLE FOR DRAWN ITEMS --- */
+#asset-list li.drawn {
+    font-style: normal; /* Remove italics */
+    color: #2d3748;     /* Use standard text color */
+    background-color: #c6f6d5; /* Add a light green background to indicate completion */
+    border-left: 4px solid #48bb78; /* Add a green left border for emphasis */
+}
+
+/* Style for an active item that has also been drawn */
+#asset-list li.drawn.active {
+    background-color: #4299e1; /* Keep the blue background for active selection */
+    color: white;
+    border-left-color: #fff; /* Change the border color to be visible on blue */
+}
