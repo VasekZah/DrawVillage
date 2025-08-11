@@ -31,7 +31,7 @@ class Entity {
     getTooltip() { return this.type; }
 }
 
-class Humanoid extends Entity {
+export class Humanoid extends Entity {
     constructor(type, x, y) {
         super(type, x, y);
         this.task = null; this.path = []; this.isMoving = false;
