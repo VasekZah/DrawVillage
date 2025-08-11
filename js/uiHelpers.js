@@ -1,9 +1,10 @@
-import { G } from './globals.js';
+import { PIXEL_ASSETS } from './pixel-assets.js';
 
-export function getAssetImg(name, classes = 'icon') {
-    const asset = G.state.loadedUserAssets[name];
-    if (asset && asset.src) {
-        return `<img src="${asset.src}" class="${classes}" alt="${name}" />`;
+export function getUiIcon(name, classes = 'icon') {
+    const iconSrc = PIXEL_ASSETS[name];
+    if (iconSrc) {
+        return `<img src="${iconSrc}" class="${classes}" alt="${name} icon" />`;
     }
-    return `<span class="${classes} text-red-500 font-bold">?</span>`;
+    // Záložní zobrazení, pokud ikona chybí
+    return `<span class="${classes}" style="background-color: #F87171; display: inline-block;"></span>`;
 }
