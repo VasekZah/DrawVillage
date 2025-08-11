@@ -153,7 +153,7 @@ function update(deltaTime) {
         }
     }
     updateCamera(); 
-    assignJobs(); // Zde je volání funkce
+    assignJobs();
     state.settlers.forEach(s => s.update(deltaTime));
     state.worldObjects.forEach(o => o.update());
     state.buildings.forEach(b => b.update?.(deltaTime));
