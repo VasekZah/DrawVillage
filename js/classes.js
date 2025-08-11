@@ -4,14 +4,12 @@ import { PixelDrawer } from './drawing.js';
 import { findPath } from './pathfinding.js';
 import { findClosest, worldToGrid, findWalkableNeighbor, updateGridForObject, setNotification, assignHomes } from './helpers.js';
 
-// Základní třída pro všechny herní objekty
 class Entity {
     draw() { PixelDrawer.draw(G.ctx, this); }
     update() {}
     getTooltip() { return this.type; }
 }
 
-// Třída pro osadníky a děti
 export class Settler extends Entity {
     constructor(name, x, y, isChild = false, age = 0) {
         super();
@@ -369,17 +367,15 @@ export class Settler extends Entity {
     finishWork() {
         if (!this.target) { this.resetTask(); return; }
         const isWorldObjectTask = this.task === 'workingAtResource' || this.task === 'pickingUpResource';
-        if (isWorldObjectTask && (!G.state.worldObjects.includes(this.target) || !this.target.resource)) {
+        if (isWorldObjectTask && !G.state.worldObjects.includes(this.target)) { // Removed !this.target.resource check as it could be null for stump
             this.resetTask();
             return;
         }
 
         switch(this.task) {
             case 'workingAtResource':
-                if (!this.target.resource || this.target.type === 'stump') {
-                    this.resetTask();
-                    return;
-                }
+                if (this.target.type === 'stump') { this.resetTask(); return; }
+                if (!this.target.resource) { this.resetTask(); return; }
                 
                 if (this.target.type === 'bush') {
                     this.payload = { ...this.target.resource };
@@ -555,14 +551,12 @@ export class Building extends Entity {
     }
     getTooltip() {
         const name = CONFIG.BUILDINGS[this.type].name;
-        if (this.isUnderConstruction) {
-            const needed = Object.entries(this.cost).map(([res, val]) => `${getUiIcon(res)}: ${Math.floor(this.delivered[res])}/${val}`).join(', ');
-            return `${name} (Stavba) - ${needed || 'Připraveno'} [Pravý klik pro zrušení]`;
-        }
-        if (this.isUpgrading) {
-            const upgradeInfo = CONFIG.UPGRADES[this.type];
-            const needed = Object.entries(upgradeInfo.cost).map(([res, val]) => `${getUiIcon(res)}: ${Math.floor(this.delivered[res])}/${val}`).join(', ');
-            return `${name} (Vylepšování) - ${needed || 'Připraveno'} [Pravý klik pro zrušení]`;
+        const cost = this.isUpgrading ? CONFIG.UPGRADES[this.type]?.cost : this.cost;
+        const status = this.isUpgrading ? 'Vylepšování' : 'Stavba';
+        
+        if (this.isUnderConstruction || this.isUpgrading) {
+            const needed = Object.entries(cost).map(([res, val]) => `${res.charAt(0).toUpperCase() + res.slice(1)}: ${Math.floor(this.delivered[res])}/${val}`).join(', ');
+            return `${name} (${status}) - ${needed || 'Připraveno'} [Pravý klik pro zrušení]`;
         }
         if (this.type === 'farm') return `${name} - ${this.farmState} (${Math.floor(this.growth * 100)}%)`;
         if (this.type === 'hut' || this.type === 'stone_house') return `${name} (Obyvatelé: ${this.residents.length}/${CONFIG.BUILDINGS[this.type].housing})`;
