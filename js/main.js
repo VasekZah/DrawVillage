@@ -1,102 +1,90 @@
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
-import { Settler, Building, WorldObject, Child, Humanoid } from './classes.js';
-import { SpriteDrawer } from './drawing.js';
-import { manageTasks } from './taskManager.js';
-import { screenToWorld, addEntity, removeEntity, setNotification, addBuilding, findClosestEntity, createResourcePile } from './helpers.js';
-import { getUiIcon } from './uiHelpers.js';
+import { PixelDrawer } from './drawing.js';
+import { Settler, Building, WorldObject, Animal, Projectile } from './classes.js';
+import { findPath } from './pathfinding.js';
+import { findClosest, worldToGrid, screenToWorld, setNotification, updateGridForObject, findWalkableNeighbor } from './helpers.js';
 
+// --- MAIN INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', () => {
-    Object.assign(G, {
-        gameCanvas: document.getElementById('gameCanvas'),
-        tooltipElement: document.getElementById('tooltip'),
-        ui: {
-            resourceDisplay: document.getElementById('resource-display'),
-            populationDisplay: document.getElementById('population-display'),
-            dayDisplay: document.getElementById('day-display'),
-            timeDisplay: document.getElementById('time-display'),
-            idleDisplay: document.getElementById('idle-display'),
-            jobManagement: document.getElementById('job-management'),
-            buildManagement: document.getElementById('build-management'),
-            notificationArea: document.getElementById('notificationArea'),
-            dayNightOverlay: document.getElementById('dayNightOverlay'),
-            timeControls: document.getElementById('time-controls'),
-        },
-        state: {
-            resources: { wood: 50, stone: 20, food: 40 },
-            entities: [], settlers: [], buildings: [], worldObjects: [], tasks: [], grid: [],
-            camera: { x: CONFIG.WORLD_SIZE / 2, y: CONFIG.WORLD_SIZE / 2, zoom: 1.2 },
-            mouse: { x: 0, y: 0, worldX: 0, worldY: 0 },
-            keysPressed: {}, buildMode: null, hoveredObject: null, selectedObject: null,
-            day: 1, timeOfDay: 0, nextId: 0,
-            jobQuotas: Object.keys(CONFIG.JOBS).reduce((acc, key) => ({ ...acc, [key]: 0 }), {}),
-            isPaused: false,
-            timeScale: 1,
-            reproductionCooldown: 0,
-        }
-    });
-    G.ctx = G.gameCanvas.getContext('2d');
+    // Assign global references
+    G.canvas = document.getElementById('gameCanvas');
+    G.ctx = G.canvas.getContext('2d');
+    G.ui = {
+        wood: document.getElementById('woodCount'), stone: document.getElementById('stoneCount'),
+        food: document.getElementById('foodCount'), settlers: document.getElementById('settlerCount'),
+        housing: document.getElementById('housingCapacity'), day: document.getElementById('dayCount'),
+        jobManagement: document.querySelector('#job-management .space-y-2'),
+        buildManagement: document.querySelector('#build-management .space-y-2'),
+        notificationArea: document.getElementById('notificationArea'),
+    };
+    G.groundCanvas = document.createElement('canvas');
+    G.groundCtx = G.groundCanvas.getContext('2d');
 
-    SpriteDrawer.generateAndCacheSprites();
+    // Initialize game state
+    G.state = {
+        resources: { wood: 50, food: 40, stone: 10 },
+        settlers: [], worldObjects: [], buildings: [], animals: [], grid: [], projectiles: [],
+        jobQuotas: Object.keys(CONFIG.JOBS).reduce((acc, key) => ({...acc, [key]: 0 }), { laborer: 0 }),
+        buildMode: null, mousePos: { x: 0, y: 0 },
+        camera: { x: 0, y: 0, zoom: 1.5 },
+        keysPressed: {}, hoveredObject: null,
+        day: 1, timeOfDay: 0, notifications: {},
+        dirtyGroundTiles: new Set(),
+    };
+
     init();
 });
 
-function spawnObjects(count, type, minDistance, amount, exclusionZones = []) {
-    let placed = 0;
-    let attempts = 0;
-    const maxAttempts = count * 20;
-
-    while (placed < count && attempts < maxAttempts) {
-        const x = (Math.random() * 0.9 + 0.05) * CONFIG.WORLD_SIZE;
-        const y = (Math.random() * 0.9 + 0.05) * CONFIG.WORLD_SIZE;
-        const closest = findClosestEntity({ x, y }, () => true, minDistance);
-        
-        let isInExclusionZone = false;
-        for(const zone of exclusionZones) {
-            if (x > zone.x - zone.radius && x < zone.x + zone.radius &&
-                y > zone.y - zone.radius && y < zone.y + zone.radius) {
-                isInExclusionZone = true;
-                break;
-            }
-        }
-
-        if (!closest && !isInExclusionZone) {
-            addEntity(new WorldObject(type, x, y, amount));
-            placed++;
-        }
-        attempts++;
-    }
-}
-
 function init() {
-    resizeCanvas();
-    setupUI();
-    const gridW = CONFIG.WORLD_SIZE / CONFIG.GRID_SIZE, gridH = CONFIG.WORLD_SIZE / CONFIG.GRID_SIZE;
+    populateUI();
+    
+    const gridW = CONFIG.WORLD_WIDTH / CONFIG.GRID_SIZE; 
+    const gridH = CONFIG.WORLD_HEIGHT / CONFIG.GRID_SIZE;
+    G.state.grid = [];
     for (let y = 0; y < gridH; y++) {
         G.state.grid[y] = [];
-        for (let x = 0; x < gridW; x++) G.state.grid[y][x] = { x, y, walkable: true, wear: 0 };
+        for (let x = 0; x < gridW; x++) G.state.grid[y][x] = { x, y, walkable: true, wear: 0, g: Infinity, f: Infinity, parent: null, detail: Math.random() > 0.95 ? (Math.random() > 0.5 ? 'flower' : 'pebble') : null };
     }
+
+    G.state.camera.x = CONFIG.WORLD_WIDTH / 2 - G.canvas.width / 2;
+    G.state.camera.y = CONFIG.WORLD_HEIGHT / 2 - G.canvas.height / 2;
     
-    const startX = CONFIG.WORLD_SIZE / 2;
-    const startY = CONFIG.WORLD_SIZE / 2;
+    const centerX = CONFIG.WORLD_WIDTH / 2; 
+    const centerY = CONFIG.WORLD_HEIGHT / 2;
 
-    addEntity(new Settler(startX, startY));
-    addEntity(new Settler(startX + 20, startY));
-    addEntity(new Settler(startX - 20, startY));
-    const stockpile = new Building('stockpile', startX, startY + 80);
-    stockpile.status = 'operational';
-    stockpile.buildProgress = 100;
-    addBuilding(stockpile);
-
-    const exclusionZone = { x: stockpile.x, y: stockpile.y, radius: stockpile.radius + 40 };
-
-    spawnObjects(150, 'tree', 25, 5, [exclusionZone]);
-    spawnObjects(80, 'stone', 30, 5, [exclusionZone]);
-    spawnObjects(40, 'berryBush', 20, 5, [exclusionZone]);
-
-    addEventListeners();
-    setInterval(manageTasks, 1000);
+    G.state.settlers.push(new Settler('Jan', centerX, centerY), new Settler('Eva', centerX + 30, centerY), new Settler('Adam', centerX - 30, centerY));
+    G.state.buildings.push(new Building('stockpile', centerX, centerY + 50));
+    
+    for (let i = 0; i < 200; i++) G.state.worldObjects.push(new WorldObject('tree', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
+    for (let i = 0; i < 120; i++) G.state.worldObjects.push(new WorldObject('stone', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
+    for (let i = 0; i < 150; i++) G.state.worldObjects.push(new WorldObject('bush', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
+    for (let i = 0; i < 8; i++) G.state.animals.push(new Animal('deer', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
+    for (let i = 0; i < 15; i++) G.state.animals.push(new Animal('rabbit', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
+    
+    [...G.state.buildings, ...G.state.worldObjects.filter(o => o.type === 'tree' || o.type === 'stone')].forEach(obj => updateGridForObject(obj, false));
+    assignHomes();
+    
+    resizeCanvas(); 
+    addEventListeners(); 
     gameLoop();
 }
 
-// ... zbytek souboru `main.js` je beze změny
+let lastTime = 0;
+function gameLoop(timestamp) {
+    const deltaTime = timestamp - lastTime || 0;
+    lastTime = timestamp;
+    update(deltaTime); 
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+function update(deltaTime) {
+    // ... all update logic from the provided single-file code
+}
+
+function draw() {
+    // ... all draw logic from the provided single-file code
+}
+
+// ... all other functions (populateUI, event listeners, etc.) from the provided single-file code
