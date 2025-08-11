@@ -1,4 +1,4 @@
-import { state, loadedUserAssets } from './config.js';
+import { G } from './globals.js';
 
 // --- ART DRAWER ---
 export const OutlineDrawer = {
@@ -23,7 +23,7 @@ export const OutlineDrawer = {
             patternCtx.lineTo(x + (Math.random() - 0.5) * 4, y + (Math.random() - 0.5) * 4);
             patternCtx.stroke();
         }
-        state.grassPattern = ctx.createPattern(patternCanvas, 'repeat');
+        G.state.grassPattern = ctx.createPattern(patternCanvas, 'repeat');
     },
     draw(ctx, entity) {
         ctx.save();
@@ -31,8 +31,8 @@ export const OutlineDrawer = {
 
         const assetKey = entity.type.startsWith('resource_') ? entity.resourceType : entity.type;
 
-        if (loadedUserAssets[assetKey]) {
-            const img = loadedUserAssets[assetKey];
+        if (G.loadedUserAssets[assetKey]) {
+            const img = G.loadedUserAssets[assetKey];
             const drawWidth = entity.radius * 2.5;
             const drawHeight = (img.height / img.width) * drawWidth;
             ctx.drawImage(img, -drawWidth / 2, -drawHeight + entity.radius * 0.5, drawWidth, drawHeight);
