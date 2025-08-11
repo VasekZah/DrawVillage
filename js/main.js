@@ -218,10 +218,10 @@ function updateUI() {
     document.getElementById('foodCount').textContent = Math.floor(G.state.resources.food);
     const totalPopulation = G.state.settlers.length;
     const housingCapacity = G.state.buildings.filter(b => b.type === 'hut' && b.status === 'operational').reduce((sum, b) => sum + (CONFIG.BUILDING_INFO.hut.housing || 0), 0);
-    G.ui.populationDisplay.innerHTML = `${getAssetImg('icon_settler')} <span class="font-semibold">${totalPopulation} / ${housingCapacity}</span>`;
-    G.ui.dayDisplay.innerHTML = `${getAssetImg('icon_day')} <span class="font-semibold">${G.state.day}</span>`;
+    G.ui.populationDisplay.innerHTML = `${getAssetImg('icon_settler', 'w-7 h-7')} <span class="font-semibold">${totalPopulation} / ${housingCapacity}</span>`;
+    G.ui.dayDisplay.innerHTML = `${getAssetImg('icon_day', 'w-7 h-7')} <span class="font-semibold">${G.state.day}</span>`;
     const timeNames = ["Night", "Morning", "Noon", "Evening"];
-    G.ui.timeDisplay.innerHTML = `${getAssetImg('icon_time')} <span class="font-semibold">${timeNames[Math.floor(G.state.timeOfDay * 4)]}</span>`;
+    G.ui.timeDisplay.innerHTML = `${getAssetImg('icon_time', 'w-7 h-7')} <span class="font-semibold">${timeNames[Math.floor(G.state.timeOfDay * 4)]}</span>`;
     let assignedCount = 0;
     const adultPopulation = G.state.settlers.filter(s => s.type === 'settler').length;
     Object.entries(G.state.jobQuotas).forEach(([jobId, count]) => {
@@ -229,7 +229,7 @@ function updateUI() {
         if (el) el.textContent = count;
         assignedCount += count;
     });
-    G.ui.idleDisplay.innerHTML = `${getAssetImg('icon_idle')} <span class="font-bold">${Math.max(0, adultPopulation - assignedCount)}</span>`;
+    G.ui.idleDisplay.innerHTML = `${getAssetImg('icon_idle', 'w-7 h-7')} <span class="font-bold">${Math.max(0, adultPopulation - assignedCount)}</span>`;
     const time = G.state.timeOfDay;
     let overlayColor;
     const nightOpacity = 0.5;
@@ -346,17 +346,18 @@ function addEventListeners() {
 function setupUI() {
     G.ui.resourceDisplay.innerHTML = Object.keys(CONFIG.RESOURCES_INFO).map(id => `
         <div data-tooltip="${CONFIG.RESOURCES_INFO[id].name}" class="flex items-center gap-2">
-            ${getAssetImg(id, 'w-6 h-6 inline-block')}
-            <span id="${id}Count" class="font-semibold">0</span>
+            ${getAssetImg(id, 'w-8 h-8 inline-block')}
+            <span id="${id}Count" class="font-semibold text-xl">0</span>
         </div>
     `).join('');
+
     G.ui.buildManagement.innerHTML = '';
     Object.entries(CONFIG.BUILDING_INFO).forEach(([id, info]) => {
         const button = document.createElement('button');
-        button.className = 'btn p-2 rounded-lg w-full h-16 flex items-center justify-center relative text-center';
+        button.className = 'btn p-2 rounded-lg w-full h-20 flex items-center justify-center relative';
         const costString = Object.entries(CONFIG.BUILDING_COSTS[id]).map(([res, val]) => `${getAssetImg(res, 'inline-block w-4 h-4')} ${val}`).join(' ');
         const tooltipContent = `<b>${info.name}</b><br>${info.description}<br>Cost: ${costString}`;
-        button.innerHTML = `<span>${info.name}</span><div class="build-btn-canvas absolute bottom-1 right-1">${getAssetImg(id, 'w-8 h-8')}</div>`;
+        button.innerHTML = getAssetImg(id, 'w-12 h-12');
         button.dataset.tooltip = tooltipContent;
         button.addEventListener('click', () => {
              G.state.buildMode = id;
@@ -364,6 +365,7 @@ function setupUI() {
         });
         G.ui.buildManagement.appendChild(button);
     });
+
     G.ui.jobManagement.innerHTML = '';
     Object.keys(CONFIG.JOBS).forEach(id => {
         const info = CONFIG.JOBS[id];
@@ -374,8 +376,8 @@ function setupUI() {
             div.style.display = 'none';
         }
         const iconSpan = document.createElement('span');
-        iconSpan.className = 'flex items-center gap-2 text-lg';
-        iconSpan.innerHTML = `${getAssetImg('icon_' + id)} <span>${info.name}</span>`;
+        iconSpan.className = 'flex items-center gap-3 text-lg';
+        iconSpan.innerHTML = `${getAssetImg('icon_' + id, 'w-8 h-8')} <span>${info.name}</span>`;
         iconSpan.dataset.tooltip = `<b>${info.name}</b><br>${info.description}`;
         const controls = document.createElement('div');
         controls.className = 'flex items-center gap-2 job-control';
@@ -386,6 +388,7 @@ function setupUI() {
         div.appendChild(controls);
         G.ui.jobManagement.appendChild(div);
     });
+    
     G.ui.timeControls.innerHTML = `
         <button id="pauseBtn" class="time-control rounded" data-tooltip="Pause (Space)">${getAssetImg('icon_pause', 'w-full h-full p-1')}</button>
         <button id="playBtn" class="time-control rounded active" data-tooltip="Normal Speed (1)">${getAssetImg('icon_play', 'w-full h-full p-1')}</button>
