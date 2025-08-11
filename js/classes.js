@@ -2,8 +2,7 @@ import { G } from './globals.js';
 import { CONFIG } from './config.js';
 import { PixelDrawer } from './drawing.js';
 import { findPath } from './pathfinding.js';
-import { findClosest, worldToGrid, findWalkableNeighbor, updateGridForObject, setNotification } from './helpers.js';
-import { getUiIcon } from './uiHelpers.js';
+import { findClosest, worldToGrid, findWalkableNeighbor, updateGridForObject, setNotification, assignHomes } from './helpers.js';
 
 class Entity {
     draw() { PixelDrawer.draw(G.ctx, this); }
