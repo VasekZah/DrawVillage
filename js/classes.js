@@ -18,10 +18,10 @@ class Entity {
 export class Humanoid extends Entity {
     constructor(type, x, y) {
         super(type, x, y);
-        this.radius = 12;
+        this.radius = 10; // Zmenšeno pro roztomilejší vzhled
         this.task = null; this.path = []; this.isMoving = false;
         this.hunger = 0; this.homeId = null; this.taskCooldown = 0;
-        this.walkCycleTimer = 0; // Pro animaci chůze
+        this.walkCycleTimer = Math.random() * 1000; // Náhodný start animace
     }
     update(deltaTime) {
         if (this.taskCooldown > 0) this.taskCooldown -= deltaTime;
@@ -197,7 +197,7 @@ export class Child extends Humanoid {
     constructor(x, y) {
         super('child', x, y);
         this.age = 0;
-        this.radius = 8;
+        this.radius = 7;
     }
     update(deltaTime) {
         super.update(deltaTime);
@@ -285,9 +285,9 @@ export class WorldObject extends Entity {
         super(type, x, y); 
         this.amount = amount;
         if (type === 'tree') {
-            this.radius = 20;
-        } else if (type === 'stone') {
             this.radius = 18;
+        } else if (type === 'stone') {
+            this.radius = 16;
         } else if (type === 'berryBush') {
             this.radius = 14;
         } else if (type === 'sapling') {
