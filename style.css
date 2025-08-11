@@ -1,14 +1,85 @@
-body { font-family: 'Inter', sans-serif; overflow: hidden; background-color: #1f2937; }
-canvas { background-color: #1a2e26; border-radius: 0.5rem; border: 2px solid #a3b18a; cursor: default; }
+body { 
+    font-family: 'Inter', sans-serif; 
+    overflow: hidden; 
+    background-color: #1f2937; 
+}
+
+canvas { 
+    background-color: #1a2e26; 
+    border-radius: 0.5rem; 
+    border: 2px solid #a3b18a; 
+    cursor: default; 
+}
 canvas.build-mode { cursor: crosshair; }
-.ui-panel { background-color: rgba(42, 60, 53, 0.9); --tw-bg-opacity: 1; background-color: rgba(42, 60, 53, var(--tw-bg-opacity)); backdrop-filter: blur(8px); border: 1px solid #a3b18a; }
-.bg-panel { background-color: rgba(42, 60, 53, 0.9); }
-.btn-action { background-color: #588157; color: white; transition: background-color 0.3s, transform 0.1s; }
-.btn-action:hover:not(:disabled) { background-color: #3a5a40; }
-.btn-action:active:not(:disabled) { transform: scale(0.95); }
-.btn-action:disabled { background-color: #52525b; cursor: not-allowed; color: #a1a1aa; }
-.job-control button { background-color: #3a5a40; width: 28px; height: 28px; font-size: 1.2rem; line-height: 1; border-radius: 0.25rem; }
+
+.ui-panel { 
+    background-color: rgba(30, 48, 41, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid #a3b18a; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+.bg-panel { 
+    background-color: rgba(30, 48, 41, 1);
+}
+
+h2 {
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+}
+
+.btn-action { 
+    background-color: #588157; 
+    color: white; 
+    transition: background-color 0.3s, transform 0.1s, box-shadow 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    border: 1px solid #6a994e;
+}
+.btn-action:hover:not(:disabled) { 
+    background-color: #3a5a40; 
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+.btn-action:active:not(:disabled) { 
+    transform: scale(0.95); 
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+}
+.btn-action:disabled { 
+    background-color: #52525b; 
+    cursor: not-allowed; 
+    color: #a1a1aa; 
+    box-shadow: none;
+    border-color: #6b7280;
+}
+
+.job-control button { 
+    background-color: #3a5a40; 
+    width: 28px; 
+    height: 28px; 
+    font-size: 1.2rem; 
+    line-height: 1; 
+    border-radius: 0.25rem; 
+}
 .job-control button:hover:not(:disabled) { background-color: #588157; }
 .job-control button:disabled { background-color: #52525b; cursor: not-allowed; }
-.scrollable-panel { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #588157 #344e41; }
-.tooltip { position: fixed; padding: 8px 12px; background-color: rgba(10, 10, 10, 0.9); color: white; border-radius: 6px; font-size: 14px; pointer-events: none; z-index: 1000; display: none; }
+
+.scrollable-panel { 
+    overflow-y: auto; 
+    scrollbar-width: thin; 
+    scrollbar-color: #588157 #344e41; 
+}
+
+.tooltip { 
+    position: fixed; 
+    padding: 8px 12px; 
+    background-color: rgba(10, 10, 10, 0.95); 
+    color: white; 
+    border-radius: 6px; 
+    font-size: 14px; 
+    pointer-events: none; 
+    z-index: 1000; 
+    display: none; 
+    border: 1px solid #4b5563;
+    max-width: 250px;
+}
+.tooltip div {
+    line-height: 1.4;
+}
