@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { PixelDrawer } from './drawing.js';
 import { Settler, Building, WorldObject, Animal, Projectile } from './classes.js';
 import { findPath } from './pathfinding.js';
-import { findClosest, worldToGrid, screenToWorld, setNotification, updateGridForObject, findWalkableNeighbor, assignHomes } from './helpers.js';
+import { findClosest, worldToGrid, screenToWorld, setNotification, updateGridForObject, assignHomes, getUiIcon } from './helpers.js';
 
 let canvas, ctx, groundCanvas, groundCtx, ui;
 
@@ -21,6 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
         buildManagement: document.querySelector('#build-management .space-y-2'),
         notificationArea: document.getElementById('notificationArea'),
         tooltip: document.getElementById('tooltip'),
+        iconWood: document.getElementById('icon-wood'),
+        iconStone: document.getElementById('icon-stone'),
+        iconFood: document.getElementById('icon-food'),
+        iconSettler: document.getElementById('icon-settler'),
+        iconHousing: document.getElementById('icon-housing'),
+        iconDay: document.getElementById('icon-day'),
     };
     
     groundCanvas = G.groundCanvas = document.createElement('canvas');
@@ -33,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
         buildMode: null, mousePos: { x: 0, y: 0 },
         camera: { x: 0, y: 0, zoom: 1.5 },
         keysPressed: {}, hoveredObject: null,
-        day: 1, timeOfDay: 0, notifications: {},
+        day: 1, timeOfDay: 0,
         dirtyGroundTiles: new Set(),
     };
     
@@ -45,11 +51,12 @@ function init() {
     
     const gridW = CONFIG.WORLD_WIDTH / CONFIG.GRID_SIZE; 
     const gridH = CONFIG.WORLD_HEIGHT / CONFIG.GRID_SIZE;
-    G.state.grid = [];
-    for (let y = 0; y < gridH; y++) {
-        G.state.grid[y] = [];
-        for (let x = 0; x < gridW; x++) G.state.grid[y][x] = { x, y, walkable: true, wear: 0, g: Infinity, f: Infinity, parent: null, detail: Math.random() > 0.95 ? (Math.random() > 0.5 ? 'flower' : 'pebble') : null };
-    }
+    G.state.grid = Array.from({ length: gridH }, (_, y) => 
+        Array.from({ length: gridW }, (_, x) => ({
+            x, y, walkable: true, wear: 0, g: Infinity, f: Infinity, parent: null,
+            detail: Math.random() > 0.9 ? (Math.random() > 0.5 ? 'flower' : 'pebble') : null
+        }))
+    );
 
     G.state.camera.x = CONFIG.WORLD_WIDTH / 2 - canvas.width / (2 * G.state.camera.zoom);
     G.state.camera.y = CONFIG.WORLD_HEIGHT / 2 - canvas.height / (2 * G.state.camera.zoom);
@@ -58,11 +65,13 @@ function init() {
     const centerY = CONFIG.WORLD_HEIGHT / 2;
 
     G.state.settlers.push(new Settler('Jan', centerX, centerY), new Settler('Eva', centerX + 30, centerY), new Settler('Adam', centerX - 30, centerY));
-    G.state.buildings.push(new Building('stockpile', centerX, centerY + 50));
+    const stockpile = new Building('stockpile', centerX, centerY + 50);
+    stockpile.isUnderConstruction = false; // Stockpiles are built instantly
+    G.state.buildings.push(stockpile);
     
     for (let i = 0; i < 200; i++) G.state.worldObjects.push(new WorldObject('tree', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
     for (let i = 0; i < 120; i++) G.state.worldObjects.push(new WorldObject('stone', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
-    for (let i = 0; i < 150; i++) G.state.worldObjects.push(new WorldObject('bush', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
+    for (let i = 0; i < 150; i++) G.state.worldObjects.push(new WorldObject('bush', Math.random() * CONFIG.WORLD_HEIGHT, Math.random() * CONFIG.WORLD_HEIGHT));
     for (let i = 0; i < 8; i++) G.state.animals.push(new Animal('deer', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
     for (let i = 0; i < 15; i++) G.state.animals.push(new Animal('rabbit', Math.random() * CONFIG.WORLD_WIDTH, Math.random() * CONFIG.WORLD_HEIGHT));
     
@@ -75,10 +84,18 @@ function init() {
 }
 
 function populateUI() {
+    ui.iconWood.textContent = getUiIcon('wood');
+    ui.iconStone.textContent = getUiIcon('stone');
+    ui.iconFood.textContent = getUiIcon('food');
+    ui.iconSettler.textContent = '🧑';
+    ui.iconHousing.textContent = '🏠';
+    ui.iconDay.textContent = '☀️';
+
     ui.jobManagement.innerHTML = '';
     const laborerDiv = document.createElement('div');
     laborerDiv.className = 'flex justify-between items-center mt-2 pt-2 border-t border-gray-600';
-    laborerDiv.innerHTML = `<span class="text-gray-300">Dělníci</span><span id="laborerCount" class="text-gray-300">0</span>`;
+    laborerDiv.innerHTML = `<span class="text-gray-300">Dělníci (bez práce)</span><span id="laborerCount" class="text-gray-300 font-semibold">0</span>`;
+    
     Object.keys(CONFIG.JOBS).forEach(jobId => {
         const div = document.createElement('div');
         div.className = 'flex justify-between items-center';
@@ -91,20 +108,25 @@ function populateUI() {
     ui.buildManagement.innerHTML = '';
     Object.keys(CONFIG.BUILDINGS).filter(b => b !== 'stockpile' && b !== 'stone_house').forEach(buildId => {
         const b = CONFIG.BUILDINGS[buildId];
-        const costString = Object.entries(b.cost).map(([res, val]) => `${val} ${res==='wood'?'🌲':(res==='stone'?'💎':'')}`).join(', ');
+        const costString = Object.entries(b.cost).map(([res, val]) => `${val} ${getUiIcon(res)}`).join(' ');
         const button = document.createElement('button');
         button.className = 'btn-action font-bold py-2 px-4 rounded-lg w-full text-left';
         button.dataset.build = buildId;
-        button.innerHTML = `${b.name} <span class="text-xs">(${costString})</span>`;
+        button.innerHTML = `${b.name} <span class="text-sm font-normal float-right">${costString}</span>`;
         ui.buildManagement.appendChild(button);
     });
+    const upgradeHeader = document.createElement('div');
+    upgradeHeader.className = 'text-lg font-semibold border-t-2 border-green-700 mt-3 pt-2';
+    upgradeHeader.innerText = 'Vylepšení';
+    ui.buildManagement.appendChild(upgradeHeader);
+
     Object.keys(CONFIG.UPGRADES).forEach(upgradeId => {
         const u = CONFIG.UPGRADES[upgradeId];
-        const costString = Object.entries(u.cost).map(([res, val]) => `${val} ${res==='wood'?'🌲':(res==='stone'?'💎':'')}`).join(', ');
+        const costString = Object.entries(u.cost).map(([res, val]) => `${val} ${getUiIcon(res)}`).join(' ');
         const button = document.createElement('button');
-        button.className = 'btn-action font-bold py-2 px-4 rounded-lg w-full text-left mt-2 border-t-2 border-green-700';
+        button.className = 'btn-action font-bold py-2 px-4 rounded-lg w-full text-left';
         button.dataset.upgrade = upgradeId;
-        button.innerHTML = `${u.name} <span class="text-xs">(${costString})</span>`;
+        button.innerHTML = `${u.name} <span class="text-sm font-normal float-right">${costString}</span>`;
         ui.buildManagement.appendChild(button);
     });
 }
@@ -118,49 +140,58 @@ function gameLoop(timestamp) {
     requestAnimationFrame(gameLoop);
 }
 
+function dailyUpdate() {
+    const { state } = G;
+    state.day++;
+    // Reproduction
+    const totalHousingCapacity = state.buildings.reduce((sum, b) => sum + ((b.type === 'hut' || b.type === 'stone_house') && !b.isUnderConstruction && !b.isUpgrading ? CONFIG.BUILDINGS[b.type].housing : 0), 0);
+    if (state.settlers.length < totalHousingCapacity) {
+        const fertileHuts = state.buildings.filter(b => (b.type === 'hut' || b.type === 'stone_house') && b.reproductionCooldown <= 0 && b.residents.filter(r => !r.isChild).length >= 2);
+        if (fertileHuts.length > 0) {
+            const home = fertileHuts[0];
+            const newChild = new Settler(`Dítě ${state.settlers.length + 1}`, home.x, home.y, true);
+            home.residents.push(newChild);
+            newChild.home = home;
+            state.settlers.push(newChild);
+            home.reproductionCooldown = CONFIG.REPRODUCTION_COOLDOWN_DAYS;
+            setNotification('Narodil se nový osadník!');
+        }
+    }
+    // Animal Reproduction
+    if (state.animals.length < CONFIG.MAX_ANIMALS && Math.random() < CONFIG.ANIMAL_REPRODUCTION_CHANCE) {
+        const parent = state.animals[Math.floor(Math.random() * state.animals.length)];
+        if (parent) {
+            const newAnimal = new Animal(parent.type, parent.x + (Math.random()-0.5)*20, parent.y + (Math.random()-0.5)*20);
+            state.animals.push(newAnimal);
+        }
+    }
+    // Path Decay
+    for(let y = 0; y < state.grid.length; y++) for(let x = 0; x < state.grid[y].length; x++) {
+        const tile = state.grid[y][x];
+        if (tile.wear > 0) {
+            tile.wear = Math.max(0, tile.wear - CONFIG.PATH_DECAY_RATE);
+            state.dirtyGroundTiles.add(`${x},${y}`);
+        }
+    }
+}
+
 function update(deltaTime) {
     const { state } = G;
     const oldTimeOfDay = state.timeOfDay;
     state.timeOfDay = (state.timeOfDay + deltaTime / CONFIG.DAY_LENGTH_MS) % 1;
     if (state.timeOfDay < oldTimeOfDay) { 
-        state.day++;
-        const totalHousingCapacity = state.buildings.reduce((sum, b) => sum + ((b.type === 'hut' || b.type === 'stone_house') && !b.isUnderConstruction && !b.isUpgrading ? CONFIG.BUILDINGS[b.type].housing : 0), 0);
-        if (state.settlers.length < totalHousingCapacity) {
-            const fertileHuts = state.buildings.filter(b => (b.type === 'hut' || b.type === 'stone_house') && b.reproductionCooldown <= 0 && b.residents.filter(r => !r.isChild).length >= 2);
-            if (fertileHuts.length > 0) {
-                const home = fertileHuts[0];
-                const newChild = new Settler('Dítě', home.x, home.y, true);
-                home.residents.push(newChild);
-                newChild.home = home;
-                state.settlers.push(newChild);
-                home.reproductionCooldown = CONFIG.REPRODUCTION_COOLDOWN_DAYS;
-                setNotification('Narodil se nový osadník!');
-            }
-        }
-        if (state.animals.length < CONFIG.MAX_ANIMALS && Math.random() < CONFIG.ANIMAL_REPRODUCTION_CHANCE) {
-            const parent = state.animals[Math.floor(Math.random() * state.animals.length)];
-            if (parent) {
-                const newAnimal = new Animal(parent.type, parent.x + (Math.random()-0.5)*20, parent.y + (Math.random()-0.5)*20);
-                state.animals.push(newAnimal);
-            }
-        }
-        for(let y = 0; y < state.grid.length; y++) for(let x = 0; x < state.grid[y].length; x++) {
-            const tile = state.grid[y][x];
-            if (tile.wear > 0) {
-                tile.wear = Math.max(0, tile.wear - CONFIG.PATH_DECAY_RATE);
-                state.dirtyGroundTiles.add(`${x},${y}`);
-            }
-        }
+        dailyUpdate();
     }
+
     updateCamera(); 
     assignJobs();
+
     state.settlers.forEach(s => s.update(deltaTime));
     state.worldObjects.forEach(o => o.update());
     state.buildings.forEach(b => b.update?.(deltaTime));
     state.animals.forEach(a => a.update());
     state.projectiles = state.projectiles.filter(p => p.update());
-    if (state.notifications.timer > 0) state.notifications.timer -= deltaTime;
-    else state.notifications.message = '';
+    
     updateHoveredObject();
 }
 
@@ -168,14 +199,27 @@ function assignJobs() {
     const { state } = G;
     const currentJobs = Object.keys(CONFIG.JOBS).reduce((acc, key) => ({...acc, [key]: 0 }), { laborer: 0 });
     state.settlers.forEach(s => { if(!s.isChild) currentJobs[s.job]++; });
-    for (const jobType of Object.keys(CONFIG.JOBS)) {
+
+    for (const jobType of Object.keys(CONFIG.JOBS).sort((a,b) => (CONFIG.JOBS[a].priority || 99) - (CONFIG.JOBS[b].priority || 99))) {
+        // Assign workers to jobs if quota is higher than current
         while (currentJobs[jobType] < state.jobQuotas[jobType] && currentJobs.laborer > 0) {
             const laborer = state.settlers.find(s => s.job === 'laborer' && !s.isChild);
-            if (laborer) { laborer.job = jobType; laborer.resetTask(); currentJobs.laborer--; currentJobs[jobType]++; } else break;
+            if (laborer) { 
+                laborer.job = jobType; 
+                laborer.resetTask(); 
+                currentJobs.laborer--; 
+                currentJobs[jobType]++; 
+            } else break;
         }
+        // Remove workers from jobs if quota is lower than current
         while (currentJobs[jobType] > state.jobQuotas[jobType]) {
             const worker = state.settlers.find(s => s.job === jobType && !s.isChild);
-            if (worker) { worker.job = 'laborer'; worker.resetTask(); currentJobs.laborer++; currentJobs[jobType]--; } else break;
+            if (worker) { 
+                worker.job = 'laborer'; 
+                worker.resetTask(); 
+                currentJobs.laborer++; 
+                currentJobs[jobType]--; 
+            } else break;
         }
     }
 }
@@ -187,6 +231,9 @@ function updateCamera() {
     if (state.keysPressed['s']) state.camera.y += panSpeed;
     if (state.keysPressed['a']) state.camera.x -= panSpeed;
     if (state.keysPressed['d']) state.camera.x += panSpeed;
+
+    state.camera.x = Math.max(0, Math.min(CONFIG.WORLD_WIDTH - canvas.width / state.camera.zoom, state.camera.x));
+    state.camera.y = Math.max(0, Math.min(CONFIG.WORLD_HEIGHT - canvas.height / state.camera.zoom, state.camera.y));
 }
 
 function updateHoveredObject() {
@@ -194,6 +241,7 @@ function updateHoveredObject() {
     const worldMouse = screenToWorld(state.mousePos.x, state.mousePos.y);
     state.hoveredObject = null; 
     let minDist = Infinity;
+    
     const allObjects = [...state.settlers, ...state.worldObjects, ...state.buildings, ...state.animals];
     for (const obj of allObjects) {
         const size = obj.radius || (obj.size ? Math.max(obj.size.w, obj.size.h)/2 : 10);
@@ -206,6 +254,7 @@ function updateHoveredObject() {
 }
 
 function drawFullGround() {
+    groundCtx.clearRect(0,0, groundCanvas.width, groundCanvas.height);
     for (let y = 0; y < G.state.grid.length; y++) {
         for (let x = 0; x < G.state.grid[y].length; x++) {
             drawGroundTile(x, y);
@@ -216,17 +265,25 @@ function drawFullGround() {
 function drawGroundTile(x, y) {
     const tile = G.state.grid[y][x];
     const wear = tile.wear;
+    
+    const grassCol = [76, 112, 69]; // Richer green
+    const wornCol = [120, 108, 75]; // More yellow/brown
+    const pathCol = [93, 80, 65];   // Darker path
+    
     let r, g, b;
-    if (wear < 64) { // Grass
-        r = 44 + (60 - 44) * (wear / 64); g = 100 - (100 - 90) * (wear / 64); b = 53 - (53 - 60) * (wear / 64);
-    } else if (wear < 192) { // Worn grass
-        const p = (wear - 64) / 128;
-        r = 60 + (109 - 60) * p; g = 90 - (90 - 93) * p; b = 60 - (60 - 71) * p;
-    } else { // Path
-        const p = (wear - 192) / 63;
-        r = 109 + (93 - 109) * p; g = 93 - (93 - 80) * p; b = 71 - (71 - 65) * p;
+    if (wear < 128) {
+        const p = wear / 128;
+        r = grassCol[0] * (1 - p) + wornCol[0] * p;
+        g = grassCol[1] * (1 - p) + wornCol[1] * p;
+        b = grassCol[2] * (1 - p) + wornCol[2] * p;
+    } else {
+        const p = (wear - 128) / 127;
+        r = wornCol[0] * (1 - p) + pathCol[0] * p;
+        g = wornCol[1] * (1 - p) + pathCol[1] * p;
+        b = wornCol[2] * (1 - p) + pathCol[2] * p;
     }
-    groundCtx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    
+    groundCtx.fillStyle = `rgb(${r|0}, ${g|0}, ${b|0})`;
     groundCtx.fillRect(x * CONFIG.GRID_SIZE, y * CONFIG.GRID_SIZE, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
     
     if (tile.detail === 'flower') {
@@ -262,7 +319,7 @@ function draw() {
     ctx.drawImage(groundCanvas, view.x, view.y, view.w, view.h, view.x, view.y, view.w, view.h);
 
     const visibleObjects = [...state.worldObjects, ...state.buildings, ...state.animals, ...state.settlers, ...state.projectiles].filter(o => {
-        const size = o.size ? Math.max(o.size.w, o.size.h) : o.radius * 2;
+        const size = o.size ? Math.max(o.size.w, o.size.h) : (o.radius || 2) * 2;
         return o.x + size > view.x && o.x - size < view.x + view.w && o.y + size > view.y && o.y - size < view.y + view.h;
     });
 
@@ -270,7 +327,7 @@ function draw() {
     visibleObjects.forEach(o => o.draw());
 
     if (state.hoveredObject) {
-        ctx.strokeStyle = 'white'; ctx.lineWidth = 1 / state.camera.zoom; ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'; ctx.lineWidth = 1.5 / state.camera.zoom; ctx.beginPath();
         const size = state.hoveredObject.radius || (state.hoveredObject.size ? Math.max(state.hoveredObject.size.w, state.hoveredObject.size.h)/2 + 2 : 10);
         ctx.rect(state.hoveredObject.x - size, state.hoveredObject.y - size, size * 2, size * 2);
         ctx.stroke();
@@ -278,7 +335,7 @@ function draw() {
     if (state.buildMode) {
         const worldMouse = screenToWorld(state.mousePos.x, state.mousePos.y);
         const blueprint = CONFIG.BUILDINGS[state.buildMode];
-        ctx.globalAlpha = 0.6;
+        
         let canPlace = true;
         const start = worldToGrid(worldMouse.x - blueprint.size.w/2, worldMouse.y - blueprint.size.h/2);
         const end = worldToGrid(worldMouse.x + blueprint.size.w/2, worldMouse.y + blueprint.size.h/2);
@@ -290,12 +347,15 @@ function draw() {
             }
             if(!canPlace) break;
         }
-        ctx.fillStyle = canPlace ? 'green' : 'red';
+        ctx.fillStyle = canPlace ? 'rgba(0, 255, 0, 0.4)' : 'rgba(255, 0, 0, 0.4)';
+        ctx.strokeStyle = canPlace ? 'rgba(0, 255, 0, 0.8)' : 'rgba(255, 0, 0, 0.8)';
+        ctx.lineWidth = 2 / state.camera.zoom;
         ctx.fillRect(worldMouse.x - blueprint.size.w/2, worldMouse.y - blueprint.size.h/2, blueprint.size.w, blueprint.size.h);
-        ctx.globalAlpha = 1.0;
+        ctx.strokeRect(worldMouse.x - blueprint.size.w/2, worldMouse.y - blueprint.size.h/2, blueprint.size.w, blueprint.size.h);
     }
     
     ctx.restore();
+    
     const tooltip = G.ui.tooltip;
     if (state.hoveredObject && state.hoveredObject.getTooltip) {
         tooltip.innerHTML = state.hoveredObject.getTooltip();
@@ -329,13 +389,75 @@ function updateUIDisplay() {
         const jobControlEl = document.getElementById(`job-control-${jobId}`);
         if (jobInfo.requires) {
             const hasRequiredBuilding = G.state.buildings.some(b => b.type === jobInfo.requires && !b.isUnderConstruction);
-            jobControlEl.querySelectorAll('button').forEach(btn => btn.disabled = !hasRequiredBuilding);
+            jobControlEl.querySelectorAll('button').forEach(btn => {
+                btn.disabled = !hasRequiredBuilding;
+                if (!hasRequiredBuilding) {
+                    btn.title = `Vyžaduje postavit: ${CONFIG.BUILDINGS[jobInfo.requires].name}`;
+                } else {
+                    btn.title = '';
+                }
+            });
             if (!hasRequiredBuilding && G.state.jobQuotas[jobId] > 0) {
                 G.state.jobQuotas[jobId] = 0;
             }
         }
     });
-    ui.notificationArea.textContent = G.state.notifications.message || '';
+}
+
+function handleBuild(e) {
+    if (!G.state.buildMode) return;
+    const worldMouse = screenToWorld(G.state.mousePos.x, G.state.mousePos.y);
+    const blueprint = CONFIG.BUILDINGS[G.state.buildMode];
+    let canPlace = true;
+    const start = worldToGrid(worldMouse.x - blueprint.size.w/2, worldMouse.y - blueprint.size.h/2);
+    const end = worldToGrid(worldMouse.x + blueprint.size.w/2, worldMouse.y + blueprint.size.h/2);
+    for(let y = start.y; y <= end.y; y++) {
+        for(let x = start.x; x <= end.x; x++) {
+            if(!G.state.grid[y]?.[x] || !G.state.grid[y][x].walkable) {
+                canPlace = false; break;
+            }
+        }
+        if(!canPlace) break;
+    }
+    if (!canPlace) { setNotification('Zde nelze stavět!', 2000); return; }
+    
+    const newBuilding = new Building(G.state.buildMode, worldMouse.x, worldMouse.y);
+    G.state.buildings.push(newBuilding); 
+    updateGridForObject(newBuilding, false);
+    G.state.buildMode = null; 
+    canvas.classList.remove('build-mode'); 
+    setNotification('');
+}
+
+function handleCancel(e) {
+    e.preventDefault();
+    if (G.state.buildMode) {
+        G.state.buildMode = null; 
+        canvas.classList.remove('build-mode'); 
+        setNotification('');
+        return;
+    }
+    if (G.state.hoveredObject && (G.state.hoveredObject.isUnderConstruction || G.state.hoveredObject.isUpgrading)) {
+        const building = G.state.hoveredObject;
+        
+        Object.entries(building.delivered).forEach(([res, amount]) => {
+            if (amount > 0) G.state.resources[res] += Math.floor(amount);
+        });
+
+        Object.entries(building.enRoute).forEach(([res, amount]) => {
+            if (amount > 0) G.state.resources[res] += Math.floor(amount);
+        });
+
+        G.state.settlers.forEach(s => {
+            if (s.target === building || s.secondaryTarget === building) {
+                s.resetTask();
+            }
+        });
+
+        updateGridForObject(building, true);
+        G.state.buildings = G.state.buildings.filter(b => b !== building);
+        setNotification(`Stavba zrušena.`);
+    }
 }
 
 function addEventListeners() {
@@ -362,7 +484,7 @@ function addEventListeners() {
             const targetBuilding = G.state.buildings.find(b => b.type === upgradeId && !b.isUpgrading && !b.isUnderConstruction);
             if (targetBuilding) {
                 targetBuilding.isUpgrading = true;
-                targetBuilding.cost = upgradeInfo.cost;
+                targetBuilding.cost = { ...upgradeInfo.cost };
                 targetBuilding.delivered = Object.keys(upgradeInfo.cost).reduce((acc, key) => ({...acc, [key]: 0 }), {});
                 targetBuilding.enRoute = Object.keys(upgradeInfo.cost).reduce((acc, key) => ({...acc, [key]: 0 }), {});
                 setNotification(`Zahájeno vylepšování: ${CONFIG.BUILDINGS[targetBuilding.type].name}`);
@@ -375,62 +497,8 @@ function addEventListeners() {
         const rect = canvas.getBoundingClientRect();
         G.state.mousePos = { x: e.clientX - rect.left, y: e.clientY - rect.top };
     });
-    canvas.addEventListener('click', e => {
-        if (!G.state.buildMode) return;
-        const worldMouse = screenToWorld(G.state.mousePos.x, G.state.mousePos.y);
-        const blueprint = CONFIG.BUILDINGS[G.state.buildMode];
-        let canPlace = true;
-        const start = worldToGrid(worldMouse.x - blueprint.size.w/2, worldMouse.y - blueprint.size.h/2);
-        const end = worldToGrid(worldMouse.x + blueprint.size.w/2, worldMouse.y + blueprint.size.h/2);
-        for(let y = start.y; y <= end.y; y++) {
-            for(let x = start.x; x <= end.x; x++) {
-                if(!G.state.grid[y]?.[x] || !G.state.grid[y][x].walkable) {
-                    canPlace = false; break;
-                }
-            }
-            if(!canPlace) break;
-        }
-        if (!canPlace) { setNotification('Zde nelze stavět!'); return; }
-        
-        const newBuilding = new Building(G.state.buildMode, worldMouse.x, worldMouse.y);
-        G.state.buildings.push(newBuilding); 
-        updateGridForObject(newBuilding, false);
-        G.state.buildMode = null; 
-        canvas.classList.remove('build-mode'); 
-        setNotification('');
-    });
-    canvas.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        if (G.state.buildMode) {
-            G.state.buildMode = null; 
-            canvas.classList.remove('build-mode'); 
-            setNotification('');
-            return;
-        }
-        if (G.state.hoveredObject && (G.state.hoveredObject.isUnderConstruction || G.state.hoveredObject.isUpgrading)) {
-            const building = G.state.hoveredObject;
-            
-            Object.entries(building.delivered).forEach(([res, amount]) => {
-                if (amount > 0) {
-                    G.state.resources[res] += Math.floor(amount);
-                }
-            });
-
-            Object.entries(building.enRoute).forEach(([res, amount]) => {
-                if (amount > 0) G.state.resources[res] += Math.floor(amount);
-            });
-
-            G.state.settlers.forEach(s => {
-                if (s.target === building || s.secondaryTarget === building) {
-                    s.resetTask();
-                }
-            });
-
-            updateGridForObject(building, true);
-            G.state.buildings = G.state.buildings.filter(b => b !== building);
-            setNotification(`Stavba zrušena.`);
-        }
-    });
+    canvas.addEventListener('click', handleBuild);
+    canvas.addEventListener('contextmenu', handleCancel);
     window.addEventListener('keydown', e => { G.state.keysPressed[e.key.toLowerCase()] = true; });
     window.addEventListener('keyup', e => { G.state.keysPressed[e.key.toLowerCase()] = false; if(e.key === 'Escape') { G.state.buildMode = null; canvas.classList.remove('build-mode'); setNotification(''); }});
     canvas.addEventListener('wheel', e => {
@@ -447,6 +515,9 @@ function addEventListeners() {
 function resizeCanvas() {
     const container = canvas.parentElement;
     canvas.width = container.offsetWidth; canvas.height = container.offsetHeight;
-    groundCanvas.width = CONFIG.WORLD_WIDTH; groundCanvas.height = CONFIG.WORLD_HEIGHT;
-    drawFullGround();
+    if (groundCanvas.width !== CONFIG.WORLD_WIDTH || groundCanvas.height !== CONFIG.WORLD_HEIGHT) {
+        groundCanvas.width = CONFIG.WORLD_WIDTH; 
+        groundCanvas.height = CONFIG.WORLD_HEIGHT;
+        drawFullGround();
+    }
 }
