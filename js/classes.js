@@ -4,12 +4,14 @@ import { PixelDrawer } from './drawing.js';
 import { findPath } from './pathfinding.js';
 import { findClosest, worldToGrid, findWalkableNeighbor, updateGridForObject, setNotification, assignHomes } from './helpers.js';
 
+// Základní třída pro všechny herní objekty
 class Entity {
     draw() { PixelDrawer.draw(G.ctx, this); }
     update() {}
     getTooltip() { return this.type; }
 }
 
+// Třída pro osadníky a děti
 export class Settler extends Entity {
     constructor(name, x, y, isChild = false, age = 0) {
         super();
@@ -520,7 +522,6 @@ export class WorldObject extends Entity {
         if (this.resource) return `${this.type.replace('_', ' ')} (${this.resource.amount} ${this.resource.type})`;
         return `${this.type.charAt(0).toUpperCase() + this.type.slice(1)}`;
     }
-    draw() { PixelDrawer.draw(G.ctx, this); }
     update() { 
         if (this.type === 'stump' && this.growth < 100) this.growth += 0.01; 
         if (this.type === 'sapling' && this.growth < 100) this.growth += 0.05;
@@ -559,14 +560,18 @@ export class Building extends Entity {
             return `${name} (Stavba) - ${needed || 'Připraveno'} [Pravý klik pro zrušení]`;
         }
         if (this.isUpgrading) {
-            const needed = Object.entries(this.cost).map(([res, val]) => `${getUiIcon(res)}: ${Math.floor(this.delivered[res])}/${val}`).join(', ');
+            const upgradeInfo = CONFIG.UPGRADES[this.type];
+            const needed = Object.entries(upgradeInfo.cost).map(([res, val]) => `${getUiIcon(res)}: ${Math.floor(this.delivered[res])}/${val}`).join(', ');
             return `${name} (Vylepšování) - ${needed || 'Připraveno'} [Pravý klik pro zrušení]`;
         }
         if (this.type === 'farm') return `${name} - ${this.farmState} (${Math.floor(this.growth * 100)}%)`;
         if (this.type === 'hut' || this.type === 'stone_house') return `${name} (Obyvatelé: ${this.residents.length}/${CONFIG.BUILDINGS[this.type].housing})`;
         return name;
     }
-    hasMaterials() { return Object.keys(this.cost).every(res => this.delivered[res] >= this.cost[res]); }
+    hasMaterials() { 
+        const cost = this.isUpgrading ? CONFIG.UPGRADES[this.type].cost : this.cost;
+        return Object.keys(cost).every(res => this.delivered[res] >= cost[res]); 
+    }
     draw() {
         if (this.isUnderConstruction || this.isUpgrading) {
             G.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
