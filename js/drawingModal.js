@@ -12,7 +12,6 @@ const assetList = [
     { id: 'berryBush', name: 'Keř s bobulemi' },
     ...Object.keys(CONFIG.BUILDING_INFO).map(id => ({ id, name: `Budova: ${CONFIG.BUILDING_INFO[id].name}` }))
 ];
-
 const iconList = [
     { id: 'icon_settler', name: 'Ikona: Populace' },
     { id: 'icon_day', name: 'Ikona: Den' },
@@ -29,15 +28,12 @@ const iconList = [
     { id: 'icon_ff2', name: 'Ikona: 2x Rychlost' },
     { id: 'icon_ff4', name: 'Ikona: 4x Rychlost' }
 ];
-
 const fullAssetList = [...assetList, ...iconList];
-
 let currentAssetIndex = 0;
 let isDrawing = false;
 let isCanvasDirty = false;
 let lastX = 0;
 let lastY = 0;
-
 let modal, canvas, ctx, assetListElement, currentAssetNameElement, saveBtn, startBtn, clearBtn, exportBtn, importBtn, importFileInput;
 
 function drawLine(x1, y1, x2, y2) {
@@ -89,7 +85,9 @@ function renderAssetList() {
         if (G.state.userAssets[asset.id]) li.classList.add('drawn');
         assetListElement.appendChild(li);
     });
-    currentAssetNameElement.textContent = `Kreslení: ${fullAssetList[currentAssetIndex].name}`;
+    if (fullAssetList[currentAssetIndex]) {
+        currentAssetNameElement.textContent = `Kreslení: ${fullAssetList[currentAssetIndex].name}`;
+    }
 }
 
 function clearCanvas() {
@@ -106,13 +104,19 @@ function selectAsset(index) {
 }
 
 function handleExport() {
+    if (Object.keys(G.state.userAssets).length === 0) {
+        alert("Není co exportovat. Nejdříve něco nakreslete.");
+        return;
+    }
     const dataStr = JSON.stringify(G.state.userAssets, null, 2);
     const dataBlob = new Blob([dataStr], {type: "application/json"});
     const url = URL.createObjectURL(dataBlob);
     const link = document.createElement('a');
     link.download = 'moje_kresby.json';
     link.href = url;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
 }
 
@@ -135,7 +139,7 @@ function handleImport(event) {
         }
     };
     reader.readAsText(file);
-    event.target.value = null; // Umožní nahrát stejný soubor znovu
+    event.target.value = null;
 }
 
 export function initDrawingModal(startGameCallback) {
@@ -159,29 +163,40 @@ export function initDrawingModal(startGameCallback) {
     saveBtn.addEventListener('click', () => {
         if (!isCanvasDirty) return;
         const currentAsset = fullAssetList[currentAssetIndex];
-        G.state.userAssets[currentAsset.id] = canvas.toDataURL(); renderAssetList();
+        G.state.userAssets[currentAsset.id] = canvas.toDataURL();
+        renderAssetList();
         let nextIndex = -1;
         for (let i = 1; i <= fullAssetList.length; i++) {
             const potentialIndex = (currentAssetIndex + i) % fullAssetList.length;
             if (!G.state.userAssets[fullAssetList[potentialIndex].id]) {
-                nextIndex = potentialIndex; break;
+                nextIndex = potentialIndex;
+                break;
             }
         }
         updateButtonStates();
-        if (nextIndex !== -1) selectAsset(nextIndex);
-        else { currentAssetNameElement.textContent = "Vše hotovo! Můžeš spustit hru."; clearCanvas(); }
+        if (nextIndex !== -1) {
+            selectAsset(nextIndex);
+        } else {
+            currentAssetNameElement.textContent = "Vše hotovo! Můžeš spustit hru.";
+            clearCanvas();
+        }
     });
 
     startBtn.addEventListener('click', () => {
         if (startBtn.disabled) return;
-        modal.style.display = 'none'; document.getElementById('game-container').style.display = 'flex';
+        modal.style.display = 'none';
+        document.getElementById('game-container').style.display = 'flex';
         const promises = Object.entries(G.state.userAssets).map(([id, dataUrl]) => {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => { G.state.loadedUserAssets[id] = img; resolve(); };
-                img.onerror = reject; img.src = dataUrl;
+                img.onerror = reject;
+                img.src = dataUrl;
             });
         });
-        Promise.all(promises).then(startGameCallback);
+        Promise.all(promises).then(startGameCallback).catch(err => {
+            console.error("Failed to load one or more user assets.", err);
+            alert("Chyba: Nepodařilo se načíst všechny vaše kresby.");
+        });
     });
 }
