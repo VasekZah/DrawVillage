@@ -8,7 +8,6 @@ import { findClosest, worldToGrid, screenToWorld, setNotification, updateGridFor
 let canvas, ctx, groundCanvas, groundCtx, ui;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Připojení globálních referencí
     G.canvas = document.getElementById('gameCanvas');
     G.ctx = G.canvas.getContext('2d');
     canvas = G.canvas;
@@ -27,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
     groundCanvas = G.groundCanvas = document.createElement('canvas');
     groundCtx = G.groundCtx = groundCanvas.getContext('2d');
 
-    // Inicializace herního stavu
     G.state = {
         resources: { wood: 50, food: 40, stone: 10 },
         settlers: [], worldObjects: [], buildings: [], animals: [], grid: [], projectiles: [],
@@ -166,6 +164,22 @@ function update(deltaTime) {
     updateHoveredObject();
 }
 
+function assignJobs() {
+    const { state } = G;
+    const currentJobs = Object.keys(CONFIG.JOBS).reduce((acc, key) => ({...acc, [key]: 0 }), { laborer: 0 });
+    state.settlers.forEach(s => { if(!s.isChild) currentJobs[s.job]++; });
+    for (const jobType of Object.keys(CONFIG.JOBS)) {
+        while (currentJobs[jobType] < state.jobQuotas[jobType] && currentJobs.laborer > 0) {
+            const laborer = state.settlers.find(s => s.job === 'laborer' && !s.isChild);
+            if (laborer) { laborer.job = jobType; laborer.resetTask(); currentJobs.laborer--; currentJobs[jobType]++; } else break;
+        }
+        while (currentJobs[jobType] > state.jobQuotas[jobType]) {
+            const worker = state.settlers.find(s => s.job === jobType && !s.isChild);
+            if (worker) { worker.job = 'laborer'; worker.resetTask(); currentJobs.laborer++; currentJobs[jobType]--; } else break;
+        }
+    }
+}
+
 function updateCamera() {
     const { state } = G;
     const panSpeed = CONFIG.CAMERA_PAN_SPEED / state.camera.zoom;
@@ -283,11 +297,13 @@ function draw() {
     
     ctx.restore();
     if (state.hoveredObject && state.hoveredObject.getTooltip) {
-        const text = state.hoveredObject.getTooltip();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.font = '14px Inter';
-        const textWidth = ctx.measureText(text).width;
-        ctx.fillRect(state.mousePos.x + 15, state.mousePos.y + 15, textWidth + 10, 22);
-        ctx.fillStyle = 'white'; ctx.fillText(text, state.mousePos.x + 20, state.mousePos.y + 26);
+        const tooltip = G.ui.tooltip;
+        tooltip.innerHTML = state.hoveredObject.getTooltip();
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${state.mousePos.x + 15}px`;
+        tooltip.style.top = `${state.mousePos.y + 15}px`;
+    } else {
+        G.ui.tooltip.style.display = 'none';
     }
     updateUIDisplay();
 }
