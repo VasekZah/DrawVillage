@@ -601,4 +601,59 @@ export class Animal extends Entity {
     getTooltip() { return this.type === 'deer' ? "Jelen" : "Zajíc"; }
     draw() {
         if (this.isDead) PixelDrawer.draw(G.ctx, {type: 'carcass', x: this.x, y: this.y});
-        else PixelDrawer.draw(G.c
+        else PixelDrawer.draw(G.ctx, this);
+    }
+    update() {
+        if (this.isDead) return;
+        if (this.path.length === 0) {
+            const randomX = this.x + (Math.random() - 0.5) * 200;
+            const randomY = this.y + (Math.random() - 0.5) * 200;
+            const end = findWalkableNeighbor(worldToGrid(randomX, randomY), worldToGrid(this.x, this.y));
+            if (end) this.path = findPath(worldToGrid(this.x, this.y), end) || [];
+        }
+        if (this.path.length > 0) {
+            const targetNode = this.path[0];
+            const targetX = targetNode.x * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+            const targetY = targetNode.y * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+            const dx = targetX - this.x; const dy = targetY - this.y;
+            const dist = Math.hypot(dx, dy);
+            const speed = CONFIG.SETTLER_SPEED * (this.type === 'rabbit' ? 1.2 : 0.8);
+            if (dist < speed) {
+                this.x = targetX; this.y = targetY; this.path.shift();
+            } else {
+                this.x += (dx / dist) * speed; this.y += (dy / dist) * speed;
+            }
+        }
+    }
+    die() {
+        this.isDead = true;
+        this.targetedBy = null;
+        const carcass = new WorldObject('carcass', this.x, this.y);
+        carcass.resource.amount = this.resource.amount;
+        G.state.worldObjects.push(carcass);
+        G.state.animals = G.state.animals.filter(a => a !== this);
+    }
+}
+    
+export class Projectile extends Entity {
+    constructor(x, y, target) {
+        super();
+        this.type = 'arrow';
+        this.x = x; this.y = y; this.target = target;
+        this.speed = 4;
+        const dx = target.x - x; const dy = target.y - y;
+        this.angle = Math.atan2(dy, dx);
+    }
+    draw() { PixelDrawer.draw(G.ctx, this); }
+    update() {
+        const dx = this.target.x - this.x; const dy = this.target.y - this.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < this.speed || this.target.isDead) {
+            if (!this.target.isDead) this.target.die();
+            return false; // remove projectile
+        }
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+        return true; // continue
+    }
+}
