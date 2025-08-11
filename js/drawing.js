@@ -29,16 +29,13 @@ export const SpriteDrawer = {
         console.log("Generating all sprites from data...");
         for (const id in SPRITE_GENERATORS) {
             if (id.startsWith('_')) continue;
-
-            const size = SPRITE_GENERATORS._canvasSize[id] || SPRITE_GENERATORS._canvasSize.default;
+            const sizeInfo = SPRITE_GENERATORS._canvasSize;
+            const size = sizeInfo[id] || sizeInfo.default;
             const canvas = document.createElement('canvas');
             canvas.width = size;
             canvas.height = size;
             canvas.id = id;
-            
-            const generatorFn = SPRITE_GENERATORS[id];
-            generatorFn(canvas.getContext('2d'));
-
+            SPRITE_GENERATORS[id](canvas.getContext('2d'));
             spriteCache.set(id, canvas);
         }
         
@@ -46,7 +43,6 @@ export const SpriteDrawer = {
         if (settlerTemplate) {
             for (const jobId in CONFIG.JOBS) {
                 const job = CONFIG.JOBS[jobId];
-                // ZDE BYL PŘEKLEP -> OPRAVENO
                 const colorizedSprite = colorizeSprite(settlerTemplate, job.color);
                 spriteCache.set(`settler_${jobId}`, colorizedSprite);
             }
@@ -57,16 +53,8 @@ export const SpriteDrawer = {
     draw(ctx, entity) {
         let spriteId;
         if (entity.type === 'settler' && entity.job !== 'unemployed') {
-            const jobColor = CONFIG.JOBS[entity.job]?.color;
-            if (jobColor) {
-                spriteId = `settler_${entity.job}`;
-            } else {
-                spriteId = 'settler';
-            }
-        } else if (entity.type === 'resource_pile') {
-            spriteId = `${entity.resourceType}_pile`;
-        }
-        else {
+            spriteId = `settler_${entity.job}`;
+        } else {
             spriteId = entity.type;
         }
         
@@ -79,8 +67,10 @@ export const SpriteDrawer = {
         const drawWidth = entity.radius * 2.5;
         const drawHeight = (sprite.height / sprite.width) * drawWidth;
         
+        // Jednoduché centrování pro VŠECHNY objekty
         let drawY = -drawHeight / 2;
 
+        // Animace poskakování
         if (entity instanceof Humanoid && entity.isMoving) {
             const bounceHeight = entity.radius * 0.25;
             const bounceSpeed = 250;
@@ -89,15 +79,6 @@ export const SpriteDrawer = {
 
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(sprite, -drawWidth / 2, drawY, drawWidth, drawHeight);
-
-        if (entity.task?.payload) {
-            const payloadSprite = spriteCache.get(`${entity.task.payload.type}_carry`);
-            if (payloadSprite) {
-                const payloadWidth = drawWidth * 0.75;
-                const payloadHeight = (payloadSprite.height / payloadSprite.width) * payloadWidth;
-                ctx.drawImage(payloadSprite, -payloadWidth / 2, drawY - payloadHeight / 3, payloadWidth, payloadHeight);
-            }
-        }
         
         ctx.restore();
     }
