@@ -1,4 +1,5 @@
-import { userAssets, loadedUserAssets, CONFIG } from './config.js';
+import { G } from './globals.js';
+import { CONFIG } from './config.js';
 
 const assetList = [
     { id: 'settler', name: 'Osadník' },
@@ -58,7 +59,7 @@ function drawLine(x1, y1, x2, y2) {
 
 function updateButtonStates() {
     saveBtn.disabled = !isCanvasDirty;
-    startBtn.disabled = Object.keys(userAssets).length < fullAssetList.length;
+    startBtn.disabled = Object.keys(G.userAssets).length < fullAssetList.length;
 }
 
 function setupDrawingCanvas() {
@@ -87,12 +88,12 @@ function setupDrawingCanvas() {
     function stopDrawing() {
         isDrawing = false;
     }
-    
+
     canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mousemove', draw);
     canvas.addEventListener('mouseup', stopDrawing);
     canvas.addEventListener('mouseout', stopDrawing);
-    
+
     canvas.addEventListener('touchstart', startDrawing, { passive: false });
     canvas.addEventListener('touchmove', draw, { passive: false });
     canvas.addEventListener('touchend', stopDrawing);
@@ -107,7 +108,7 @@ function renderAssetList() {
         if (index === currentAssetIndex) {
             li.classList.add('active');
         }
-        if (userAssets[asset.id]) {
+        if (G.userAssets[asset.id]) {
             li.classList.add('drawn');
         }
         assetListElement.appendChild(li);
@@ -143,10 +144,10 @@ export function initDrawingModal(startGameCallback) {
     saveBtn.addEventListener('click', () => {
         if (!isCanvasDirty) return;
         const currentAsset = fullAssetList[currentAssetIndex];
-        userAssets[currentAsset.id] = canvas.toDataURL();
-        
+        G.userAssets[currentAsset.id] = canvas.toDataURL();
+
         let nextIndex = (currentAssetIndex + 1) % fullAssetList.length;
-        while(userAssets[fullAssetList[nextIndex].id] && nextIndex !== currentAssetIndex) {
+        while(G.userAssets[fullAssetList[nextIndex].id] && nextIndex !== currentAssetIndex) {
             nextIndex = (nextIndex + 1) % fullAssetList.length;
         }
         selectAsset(nextIndex);
@@ -154,16 +155,16 @@ export function initDrawingModal(startGameCallback) {
     });
 
     startBtn.addEventListener('click', () => {
-        if (Object.keys(userAssets).length < fullAssetList.length) return;
+        if (Object.keys(G.userAssets).length < fullAssetList.length) return;
 
         modal.style.display = 'none';
         document.getElementById('game-container').style.display = 'flex';
-        
-        const promises = Object.entries(userAssets).map(([id, dataUrl]) => {
+
+        const promises = Object.entries(G.userAssets).map(([id, dataUrl]) => {
             return new Promise((resolve) => {
                 const img = new Image();
                 img.onload = () => {
-                    loadedUserAssets[id] = img;
+                    G.loadedUserAssets[id] = img;
                     resolve();
                 };
                 img.src = dataUrl;
