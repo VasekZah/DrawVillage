@@ -34,68 +34,90 @@ const fullAssetList = [...assetList, ...iconList];
 
 let currentAssetIndex = 0;
 let isDrawing = false;
-let isCanvasDirty = false;
+let hasNewStrokes = false; // Tracks if a new drawing has been made on the canvas
 
 let modal, canvas, ctx, assetListElement, currentAssetNameElement, saveBtn, startBtn, clearBtn, exportBtn, importBtn, importFileInput;
 
 function updateButtonStates() {
     const assetsDrawn = Object.keys(G.state.userAssets).length;
     const allAssetsDrawn = assetsDrawn >= fullAssetList.length;
-    saveBtn.disabled = !isCanvasDirty;
+    saveBtn.disabled = !hasNewStrokes;
     startBtn.disabled = !allAssetsDrawn;
 }
 
-// Rewritten drawing logic for smoother lines
+// Rewritten drawing logic for smoother and thicker lines
 function setupDrawingCanvas() {
-    // --- Drawing settings for thicker, smoother lines ---
-    ctx.lineWidth = 4;        // Set line width to 4px
-    ctx.lineCap = 'round';    // Sets the end of the lines to be round
-    ctx.lineJoin = 'round';   // Sets the connection of lines to be round, removing sharp corners
+    ctx.lineWidth = 8; // Increased pen size for better visibility
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.strokeStyle = '#2d3748';
+
+    let points = [];
 
     const getCoords = (e) => {
         const rect = canvas.getBoundingClientRect();
-        // Handle both mouse and touch events
         const event = e.touches ? e.touches[0] : e;
         return [event.clientX - rect.left, event.clientY - rect.top];
-    };
+    }
 
     const startDrawing = (e) => {
         e.preventDefault();
+        // If the canvas was showing a preview, clear it before starting a new drawing.
+        if (!hasNewStrokes) {
+            clearCanvas(true);
+        }
         isDrawing = true;
-        isCanvasDirty = true;
-        
-        ctx.beginPath(); // Start a new path
-        const [x, y] = getCoords(e);
-        ctx.moveTo(x, y); // Move to the starting position
+        hasNewStrokes = true;
+        points = [getCoords(e)];
         updateButtonStates();
     };
 
     const draw = (e) => {
         if (!isDrawing) return;
         e.preventDefault();
-        const [x, y] = getCoords(e);
-        ctx.lineTo(x, y); // Draw a line to the new position
-        ctx.stroke();     // Render the line
+        points.push(getCoords(e));
+
+        // Redraw the entire line smoothly for a better feel
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        if (points.length < 2) return;
+
+        ctx.moveTo(points[0][0], points[0][1]);
+
+        for (let i = 1; i < points.length - 2; i++) {
+            const xc = (points[i][0] + points[i + 1][0]) / 2;
+            const yc = (points[i][1] + points[i + 1][1]) / 2;
+            ctx.quadraticCurveTo(points[i][0], points[i][1], xc, yc);
+        }
+        if (points.length > 2) {
+             ctx.quadraticCurveTo(
+                points[points.length - 2][0],
+                points[points.length - 2][1],
+                points[points.length - 1][0],
+                points[points.length - 1][1]
+            );
+        } else if (points.length > 1) {
+            ctx.lineTo(points[points.length-1][0], points[points.length-1][1]);
+        }
+        ctx.stroke();
     };
 
     const stopDrawing = () => {
         if (!isDrawing) return;
         isDrawing = false;
-        // The path is already drawn, no need to do anything else
+        points = []; // Clear points after drawing stroke
     };
-
-    // Mouse events
+    
     canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mousemove', draw);
     canvas.addEventListener('mouseup', stopDrawing);
     canvas.addEventListener('mouseout', stopDrawing);
 
-    // Touch events for mobile support
     canvas.addEventListener('touchstart', startDrawing, { passive: false });
     canvas.addEventListener('touchmove', draw, { passive: false });
     canvas.addEventListener('touchend', stopDrawing);
 }
+
 
 function renderAssetList() {
     assetListElement.innerHTML = '';
@@ -110,65 +132,88 @@ function renderAssetList() {
     }
 }
 
-function clearCanvas() {
+function clearCanvas(isInternalCall = false) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    isCanvasDirty = false;
-    updateButtonStates();
+    if (!isInternalCall) {
+        hasNewStrokes = false;
+        updateButtonStates();
+    }
+}
+
+// --- NEW --- Shows a preview of the saved drawing
+function showPreview(assetId) {
+    const img = new Image();
+    img.onload = () => {
+        const canvasAspect = canvas.width / canvas.height;
+        const imgAspect = img.width / img.height;
+        let drawWidth, drawHeight, dx, dy;
+
+        if (canvasAspect > imgAspect) {
+            drawHeight = canvas.height * 0.9;
+            drawWidth = drawHeight * imgAspect;
+        } else {
+            drawWidth = canvas.width * 0.9;
+            drawHeight = drawWidth / imgAspect;
+        }
+        dx = (canvas.width - drawWidth) / 2;
+        dy = (canvas.height - drawHeight) / 2;
+
+        ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
+    };
+    img.src = G.state.userAssets[assetId];
 }
 
 function selectAsset(index) {
     currentAssetIndex = index;
-    if (Object.keys(G.state.userAssets).length >= fullAssetList.length) {
-       currentAssetNameElement.textContent = "All done! You can start the game.";
-    }
-    clearCanvas();
+    clearCanvas(true);
     renderAssetList();
-}
 
-function handleExport() {
-    if (Object.keys(G.state.userAssets).length === 0) {
-        alert("Nothing to export. Draw something first.");
-        return;
+    const assetId = fullAssetList[currentAssetIndex]?.id;
+    if (assetId && G.state.userAssets[assetId]) {
+        showPreview(assetId);
+        hasNewStrokes = false;
+    } else {
+        hasNewStrokes = false;
     }
-    const dataStr = JSON.stringify(G.state.userAssets, null, 2);
-    const dataBlob = new Blob([dataStr], {type: "application/json"});
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.download = 'my_drawings.json';
-    link.href = url;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    updateButtonStates();
 }
 
-function handleImport(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const importedData = JSON.parse(e.target.result);
-            if (typeof importedData !== 'object' || importedData === null) {
-                throw new Error("Invalid file format.");
+// --- NEW --- Crops the drawing to its content before saving
+function cropAndSave() {
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = pixels.data;
+    let minX = canvas.width, minY = canvas.height, maxX = -1, maxY = -1;
+
+    for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+            if (data[(y * canvas.width + x) * 4 + 3] > 0) {
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
             }
-            Object.assign(G.state.userAssets, importedData);
-            alert(`${Object.keys(importedData).length} drawings were imported!`);
-            // Find the first undrawn asset and select it
-            const firstUndrawnIndex = fullAssetList.findIndex(asset => !G.state.userAssets[asset.id]);
-            if (firstUndrawnIndex !== -1) {
-                selectAsset(firstUndrawnIndex);
-            } else {
-                 renderAssetList();
-            }
-            updateButtonStates();
-        } catch (error) {
-            alert("Error during import: " + error.message);
         }
-    };
-    reader.readAsText(file);
-    event.target.value = null; // Allows importing the same file again
+    }
+
+    if (maxX < minX) return null;
+
+    const padding = 20;
+    minX = Math.max(0, minX - padding);
+    minY = Math.max(0, minY - padding);
+    maxX = Math.min(canvas.width, maxX + padding);
+    maxY = Math.min(canvas.height, maxY + padding);
+
+    const width = maxX - minX;
+    const height = maxY - minY;
+
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = width;
+    tempCanvas.height = height;
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCtx.drawImage(canvas, minX, minY, width, height, 0, 0, width, height);
+    return tempCanvas.toDataURL();
 }
+
 
 export function initDrawingModal(startGameCallback) {
     modal = document.getElementById('drawing-modal'); canvas = document.getElementById('drawing-canvas');
@@ -185,18 +230,21 @@ export function initDrawingModal(startGameCallback) {
     assetListElement.addEventListener('click', (e) => {
         if (e.target.tagName === 'LI') selectAsset(parseInt(e.target.dataset.index));
     });
-    clearBtn.addEventListener('click', clearCanvas);
+    clearBtn.addEventListener('click', () => clearCanvas(false));
     exportBtn.addEventListener('click', handleExport);
     importBtn.addEventListener('click', () => importFileInput.click());
     importFileInput.addEventListener('change', handleImport);
 
     saveBtn.addEventListener('click', () => {
-        if (!isCanvasDirty) return;
-        const currentAsset = fullAssetList[currentAssetIndex];
-        G.state.userAssets[currentAsset.id] = canvas.toDataURL();
+        if (!hasNewStrokes) return;
+
+        const croppedDataUrl = cropAndSave();
+        if (!croppedDataUrl) return;
         
+        const currentAsset = fullAssetList[currentAssetIndex];
+        G.state.userAssets[currentAsset.id] = croppedDataUrl;
+
         let nextIndex = -1;
-        // Find the next available undrawn asset to select
         for (let i = 1; i <= fullAssetList.length; i++) {
             const potentialIndex = (currentAssetIndex + i) % fullAssetList.length;
             if (!G.state.userAssets[fullAssetList[potentialIndex].id]) {
@@ -208,11 +256,12 @@ export function initDrawingModal(startGameCallback) {
         if (nextIndex !== -1) {
             selectAsset(nextIndex);
         } else {
-            renderAssetList(); // Re-render to show the last item as 'drawn'
+            renderAssetList();
             currentAssetNameElement.textContent = "All done! You can start the game.";
-            clearCanvas();
+            clearCanvas(true);
+            hasNewStrokes = false;
+            updateButtonStates();
         }
-        updateButtonStates();
     });
 
     startBtn.addEventListener('click', () => {
@@ -232,4 +281,29 @@ export function initDrawingModal(startGameCallback) {
             alert("Error: Failed to load all of your drawings.");
         });
     });
+}
+// handleImport needs to call selectAsset to show a preview of the first undrawn item.
+function handleImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            if (typeof importedData !== 'object' || importedData === null) {
+                throw new Error("Invalid file format.");
+            }
+            Object.assign(G.state.userAssets, importedData);
+            alert(`${Object.keys(importedData).length} drawings were imported!`);
+            
+            const firstUndrawnIndex = fullAssetList.findIndex(asset => !G.state.userAssets[asset.id]);
+            selectAsset(firstUndrawnIndex !== -1 ? firstUndrawnIndex : 0);
+            
+            updateButtonStates();
+        } catch (error) {
+            alert("Error during import: " + error.message);
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = null;
 }
