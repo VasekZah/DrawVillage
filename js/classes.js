@@ -18,6 +18,8 @@ class Entity {
 export class Humanoid extends Entity {
     constructor(type, x, y) {
         super(type, x, y);
+        // --- ADJUSTED SIZE --- Make humanoids smaller
+        this.radius = 12;
         this.task = null; this.path = []; this.isMoving = false;
         this.hunger = 0; this.homeId = null; this.taskCooldown = 0;
     }
@@ -184,7 +186,8 @@ export class Child extends Humanoid {
     constructor(x, y) {
         super('child', x, y);
         this.age = 0;
-        this.radius = 10;
+        // --- ADJUSTED SIZE --- Make children even smaller
+        this.radius = 8;
     }
     update(deltaTime) {
         super.update(deltaTime);
@@ -271,23 +274,20 @@ export class WorldObject extends Entity {
     constructor(type, x, y, amount = 100) {
         super(type, x, y); 
         this.amount = amount;
-
-        // --- ADJUSTED RADII FOR MORE NATURAL SCALING ---
         if (type === 'tree') {
-            this.radius = 20; // Trees are large
+            this.radius = 20;
         } else if (type === 'stone') {
-            this.radius = 18; // Stone deposits are also large
+            this.radius = 18;
         } else if (type === 'berryBush') {
-            this.radius = 14; // Bushes are medium-sized
+            this.radius = 14;
         } else if (type === 'sapling') {
-            this.radius = 7;  // Saplings are small
+            this.radius = 7;
             this.age = 0;
         } else if (type.startsWith('resource_')) {
             this.resourceType = type.split('_')[1];
             this.type = 'resource_pile';
-            this.radius = 8;  // Resource piles on the ground are small
+            this.radius = 8;
         }
-        // Humanoids have a radius of 16, so these values scale relative to them.
     }
     
     update(deltaTime) {
