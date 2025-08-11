@@ -18,10 +18,10 @@ class Entity {
 export class Humanoid extends Entity {
     constructor(type, x, y) {
         super(type, x, y);
-        this.radius = 10; // Zmenšeno pro roztomilejší vzhled
+        this.radius = 10;
         this.task = null; this.path = []; this.isMoving = false;
         this.hunger = 0; this.homeId = null; this.taskCooldown = 0;
-        this.walkCycleTimer = Math.random() * 1000; // Náhodný start animace
+        this.walkCycleTimer = Math.random() * 1000;
     }
     update(deltaTime) {
         if (this.taskCooldown > 0) this.taskCooldown -= deltaTime;
@@ -281,7 +281,7 @@ export class Building extends Entity {
 }
 
 export class WorldObject extends Entity {
-    constructor(type, x, y, amount = 100) {
+    constructor(type, x, y, amount) { // Odebrán default amount
         super(type, x, y); 
         this.amount = amount;
         if (type === 'tree') {
@@ -289,7 +289,7 @@ export class WorldObject extends Entity {
         } else if (type === 'stone') {
             this.radius = 16;
         } else if (type === 'berryBush') {
-            this.radius = 14;
+            this.radius = 12;
         } else if (type === 'sapling') {
             this.radius = 7;
             this.age = 0;
