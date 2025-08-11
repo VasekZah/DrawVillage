@@ -34,7 +34,7 @@ const fullAssetList = [...assetList, ...iconList];
 
 let currentAssetIndex = 0;
 let isDrawing = false;
-let hasNewStrokes = false; // Tracks if a new drawing has been made on the canvas
+let hasNewStrokes = false;
 
 let modal, canvas, ctx, assetListElement, currentAssetNameElement, saveBtn, startBtn, clearBtn, exportBtn, importBtn, importFileInput;
 
@@ -45,7 +45,6 @@ function updateButtonStates() {
     startBtn.disabled = !allAssetsDrawn;
 }
 
-// --- REPAIRED DRAWING LOGIC ---
 function setupDrawingCanvas() {
     ctx.lineWidth = 8;
     ctx.lineCap = 'round';
@@ -60,18 +59,14 @@ function setupDrawingCanvas() {
 
     const startDrawing = (e) => {
         e.preventDefault();
-        
-        // If the canvas was showing a preview, clear it before starting a new drawing.
         if (!hasNewStrokes) {
-            clearCanvas(true); // Internal call, doesn't reset the flag
+            clearCanvas(true);
         }
-
         isDrawing = true;
         hasNewStrokes = true;
         updateButtonStates();
-
         const [x, y] = getCoords(e);
-        ctx.beginPath(); // Start a new, separate line path
+        ctx.beginPath();
         ctx.moveTo(x, y);
     };
 
@@ -79,31 +74,30 @@ function setupDrawingCanvas() {
         if (!isDrawing) return;
         e.preventDefault();
         const [x, y] = getCoords(e);
-        ctx.lineTo(x, y); // Add a new point to the current line
-        ctx.stroke();     // Draw the new segment without clearing the canvas
+        ctx.lineTo(x, y);
+        ctx.stroke();
     };
 
     const stopDrawing = () => {
         if (!isDrawing) return;
         isDrawing = false;
-        // The line is now committed to the canvas.
     };
-    
+
     canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mousemove', draw);
     canvas.addEventListener('mouseup', stopDrawing);
     canvas.addEventListener('mouseout', stopDrawing);
-
     canvas.addEventListener('touchstart', startDrawing, { passive: false });
     canvas.addEventListener('touchmove', draw, { passive: false });
     canvas.addEventListener('touchend', stopDrawing);
 }
 
-
 function renderAssetList() {
     assetListElement.innerHTML = '';
     fullAssetList.forEach((asset, index) => {
-        const li = document.createElement('li'); li.textContent = asset.name; li.dataset.index = index;
+        const li = document.createElement('li');
+        li.textContent = asset.name;
+        li.dataset.index = index;
         if (index === currentAssetIndex) li.classList.add('active');
         if (G.state.userAssets[asset.id]) li.classList.add('drawn');
         assetListElement.appendChild(li);
@@ -127,7 +121,6 @@ function showPreview(assetId) {
         const canvasAspect = canvas.width / canvas.height;
         const imgAspect = img.width / img.height;
         let drawWidth, drawHeight, dx, dy;
-
         if (canvasAspect > imgAspect) {
             drawHeight = canvas.height * 0.9;
             drawWidth = drawHeight * imgAspect;
@@ -137,7 +130,6 @@ function showPreview(assetId) {
         }
         dx = (canvas.width - drawWidth) / 2;
         dy = (canvas.height - drawHeight) / 2;
-
         ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
     };
     img.src = G.state.userAssets[assetId];
@@ -147,7 +139,6 @@ function selectAsset(index) {
     currentAssetIndex = index;
     clearCanvas(true);
     renderAssetList();
-
     const assetId = fullAssetList[currentAssetIndex]?.id;
     if (assetId && G.state.userAssets[assetId]) {
         showPreview(assetId);
@@ -162,7 +153,6 @@ function cropAndSave() {
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = pixels.data;
     let minX = canvas.width, minY = canvas.height, maxX = -1, maxY = -1;
-
     for (let y = 0; y < canvas.height; y++) {
         for (let x = 0; x < canvas.width; x++) {
             if (data[(y * canvas.width + x) * 4 + 3] > 0) {
@@ -173,18 +163,14 @@ function cropAndSave() {
             }
         }
     }
-
     if (maxX < minX) return null;
-
     const padding = 20;
     minX = Math.max(0, minX - padding);
     minY = Math.max(0, minY - padding);
     maxX = Math.min(canvas.width, maxX + padding);
     maxY = Math.min(canvas.height, maxY + padding);
-
     const width = maxX - minX;
     const height = maxY - minY;
-
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = width;
     tempCanvas.height = height;
@@ -193,74 +179,24 @@ function cropAndSave() {
     return tempCanvas.toDataURL();
 }
 
-
-export function initDrawingModal(startGameCallback) {
-    modal = document.getElementById('drawing-modal'); canvas = document.getElementById('drawing-canvas');
-    assetListElement = document.getElementById('asset-list'); currentAssetNameElement = document.getElementById('current-asset-name');
-    clearBtn = document.getElementById('clear-drawing-btn'); saveBtn = document.getElementById('save-drawing-btn');
-    startBtn = document.getElementById('start-game-btn'); exportBtn = document.getElementById('export-btn');
-    importBtn = document.getElementById('import-btn'); importFileInput = document.getElementById('import-file-input');
-    ctx = canvas.getContext('2d');
-    
-    renderAssetList();
-    setupDrawingCanvas();
-    updateButtonStates();
-
-    assetListElement.addEventListener('click', (e) => {
-        if (e.target.tagName === 'LI') selectAsset(parseInt(e.target.dataset.index));
-    });
-    clearBtn.addEventListener('click', () => clearCanvas(false));
-    exportBtn.addEventListener('click', handleExport);
-    importBtn.addEventListener('click', () => importFileInput.click());
-    importFileInput.addEventListener('change', handleImport);
-
-    saveBtn.addEventListener('click', () => {
-        if (!hasNewStrokes) return;
-
-        const croppedDataUrl = cropAndSave();
-        if (!croppedDataUrl) return;
-        
-        const currentAsset = fullAssetList[currentAssetIndex];
-        G.state.userAssets[currentAsset.id] = croppedDataUrl;
-
-        let nextIndex = -1;
-        for (let i = 1; i <= fullAssetList.length; i++) {
-            const potentialIndex = (currentAssetIndex + i) % fullAssetList.length;
-            if (!G.state.userAssets[fullAssetList[potentialIndex].id]) {
-                nextIndex = potentialIndex;
-                break;
-            }
-        }
-        
-        if (nextIndex !== -1) {
-            selectAsset(nextIndex);
-        } else {
-            renderAssetList();
-            currentAssetNameElement.textContent = "All done! You can start the game.";
-            clearCanvas(true);
-            hasNewStrokes = false;
-            updateButtonStates();
-        }
-    });
-
-    startBtn.addEventListener('click', () => {
-        if (startBtn.disabled) return;
-        modal.style.display = 'none';
-        document.getElementById('game-container').style.display = 'flex';
-        const promises = Object.entries(G.state.userAssets).map(([id, dataUrl]) => {
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => { G.state.loadedUserAssets[id] = img; resolve(); };
-                img.onerror = reject;
-                img.src = dataUrl;
-            });
-        });
-        Promise.all(promises).then(startGameCallback).catch(err => {
-            console.error("Failed to load one or more user assets.", err);
-            alert("Error: Failed to load all of your drawings.");
-        });
-    });
+// --- RE-ADDED THIS FUNCTION ---
+function handleExport() {
+    if (Object.keys(G.state.userAssets).length === 0) {
+        alert("Nothing to export. Draw something first.");
+        return;
+    }
+    const dataStr = JSON.stringify(G.state.userAssets, null, 2);
+    const dataBlob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.download = 'my_drawings.json';
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }
+
 function handleImport(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -273,10 +209,8 @@ function handleImport(event) {
             }
             Object.assign(G.state.userAssets, importedData);
             alert(`${Object.keys(importedData).length} drawings were imported!`);
-            
             const firstUndrawnIndex = fullAssetList.findIndex(asset => !G.state.userAssets[asset.id]);
             selectAsset(firstUndrawnIndex !== -1 ? firstUndrawnIndex : 0);
-            
             updateButtonStates();
         } catch (error) {
             alert("Error during import: " + error.message);
@@ -284,4 +218,72 @@ function handleImport(event) {
     };
     reader.readAsText(file);
     event.target.value = null;
+}
+
+export function initDrawingModal(startGameCallback) {
+    modal = document.getElementById('drawing-modal');
+    canvas = document.getElementById('drawing-canvas');
+    assetListElement = document.getElementById('asset-list');
+    currentAssetNameElement = document.getElementById('current-asset-name');
+    clearBtn = document.getElementById('clear-drawing-btn');
+    saveBtn = document.getElementById('save-drawing-btn');
+    startBtn = document.getElementById('start-game-btn');
+    exportBtn = document.getElementById('export-btn');
+    importBtn = document.getElementById('import-btn');
+    importFileInput = document.getElementById('import-file-input');
+    ctx = canvas.getContext('2d');
+    renderAssetList();
+    setupDrawingCanvas();
+    updateButtonStates();
+    assetListElement.addEventListener('click', (e) => {
+        if (e.target.tagName === 'LI') selectAsset(parseInt(e.target.dataset.index));
+    });
+    clearBtn.addEventListener('click', () => clearCanvas(false));
+    exportBtn.addEventListener('click', handleExport); // This line will now work correctly
+    importBtn.addEventListener('click', () => importFileInput.click());
+    importFileInput.addEventListener('change', handleImport);
+    saveBtn.addEventListener('click', () => {
+        if (!hasNewStrokes) return;
+        const croppedDataUrl = cropAndSave();
+        if (!croppedDataUrl) return;
+        const currentAsset = fullAssetList[currentAssetIndex];
+        G.state.userAssets[currentAsset.id] = croppedDataUrl;
+        let nextIndex = -1;
+        for (let i = 1; i <= fullAssetList.length; i++) {
+            const potentialIndex = (currentAssetIndex + i) % fullAssetList.length;
+            if (!G.state.userAssets[fullAssetList[potentialIndex].id]) {
+                nextIndex = potentialIndex;
+                break;
+            }
+        }
+        if (nextIndex !== -1) {
+            selectAsset(nextIndex);
+        } else {
+            renderAssetList();
+            currentAssetNameElement.textContent = "All done! You can start the game.";
+            clearCanvas(true);
+            hasNewStrokes = false;
+            updateButtonStates();
+        }
+    });
+    startBtn.addEventListener('click', () => {
+        if (startBtn.disabled) return;
+        modal.style.display = 'none';
+        document.getElementById('game-container').style.display = 'flex';
+        const promises = Object.entries(G.state.userAssets).map(([id, dataUrl]) => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    G.state.loadedUserAssets[id] = img;
+                    resolve();
+                };
+                img.onerror = reject;
+                img.src = dataUrl;
+            });
+        });
+        Promise.all(promises).then(startGameCallback).catch(err => {
+            console.error("Failed to load one or more user assets.", err);
+            alert("Error: Failed to load all of your drawings.");
+        });
+    });
 }
