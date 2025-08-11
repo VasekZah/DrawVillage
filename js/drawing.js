@@ -46,7 +46,8 @@ export const SpriteDrawer = {
         if (settlerTemplate) {
             for (const jobId in CONFIG.JOBS) {
                 const job = CONFIG.JOBS[jobId];
-                const colorizedSprite = createColorizedSprite(settlerTemplate, job.color);
+                // ZDE BYL PŘEKLEP -> OPRAVENO
+                const colorizedSprite = colorizeSprite(settlerTemplate, job.color);
                 spriteCache.set(`settler_${jobId}`, colorizedSprite);
             }
         }
@@ -57,13 +58,15 @@ export const SpriteDrawer = {
         let spriteId;
         if (entity.type === 'settler' && entity.job !== 'unemployed') {
             const jobColor = CONFIG.JOBS[entity.job]?.color;
-            if (jobColor) { // Check if job exists
-                 // Použijeme speciální klíč pro cachovanou barevnou variantu
+            if (jobColor) {
                 spriteId = `settler_${entity.job}`;
             } else {
                 spriteId = 'settler';
             }
-        } else {
+        } else if (entity.type === 'resource_pile') {
+            spriteId = `${entity.resourceType}_pile`;
+        }
+        else {
             spriteId = entity.type;
         }
         
@@ -76,10 +79,8 @@ export const SpriteDrawer = {
         const drawWidth = entity.radius * 2.5;
         const drawHeight = (sprite.height / sprite.width) * drawWidth;
         
-        // Sjednocená logika pro pozicování
         let drawY = -drawHeight / 2;
 
-        // Animace poskakování při chůzi pro postavy
         if (entity instanceof Humanoid && entity.isMoving) {
             const bounceHeight = entity.radius * 0.25;
             const bounceSpeed = 250;
@@ -89,7 +90,6 @@ export const SpriteDrawer = {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(sprite, -drawWidth / 2, drawY, drawWidth, drawHeight);
 
-        // Vykreslení nákladu
         if (entity.task?.payload) {
             const payloadSprite = spriteCache.get(`${entity.task.payload.type}_carry`);
             if (payloadSprite) {
