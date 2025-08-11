@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Last Hearth: Reforged - Drawing Edition</title>
+    <title>Last Hearth: Reforged</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,31 +11,6 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body class="flex items-center justify-center h-screen p-4">
-
-    <div id="drawing-modal">
-        <div class="bg-white p-8 rounded-lg shadow-2xl flex gap-8 w-full max-w-6xl">
-            <div class="w-1/4">
-                <h2 class="text-2xl font-bold mb-4">Draw Your Game</h2>
-                <ul id="asset-list" class="space-y-1 h-[512px] overflow-y-auto pr-2 scrollable-panel"></ul>
-            </div>
-            <div class="flex-grow flex flex-col items-center">
-                <h3 id="current-asset-name" class="text-xl font-semibold mb-2 h-8"></h3>
-                <canvas id="drawing-canvas" width="512" height="512"></canvas>
-                <div class="mt-4 flex gap-4">
-                    <button id="clear-drawing-btn" class="btn px-4 py-2 rounded-lg">Clear</button>
-                    <button id="save-drawing-btn" class="btn bg-blue-500 text-white hover:bg-blue-600 px-4 py-2 rounded-lg">Save & Next</button>
-                </div>
-                <div class="mt-4 flex gap-4 border-t pt-4">
-                    <button id="export-btn" class="btn bg-gray-600 text-white hover:bg-gray-700 px-4 py-2 rounded-lg">Export Drawings</button>
-                    <button id="import-btn" class="btn bg-gray-600 text-white hover:bg-gray-700 px-4 py-2 rounded-lg">Import Drawings</button>
-                    <input type="file" id="import-file-input" class="hidden" accept="application/json">
-                </div>
-            </div>
-            <div class="w-1/4 flex flex-col justify-end">
-                 <button id="start-game-btn" class="btn bg-green-500 text-white hover:bg-green-600 w-full py-3 rounded-lg text-lg font-bold">Start Game</button>
-            </div>
-        </div>
-    </div>
 
     <div id="game-container" class="w-full max-w-screen-2xl mx-auto flex flex-col lg:flex-row gap-4 h-[96vh] game-container">
         <div class="flex-grow h-full relative">
