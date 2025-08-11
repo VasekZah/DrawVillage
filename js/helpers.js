@@ -9,10 +9,10 @@ export function worldToGrid(x, y) {
 }
 
 export function screenToWorld(x, y) { 
-    const { state } = G;
+    const { camera } = G.state;
     return { 
-        x: state.camera.x + x / state.camera.zoom, 
-        y: state.camera.y + y / state.camera.zoom 
+        x: camera.x + x / camera.zoom, 
+        y: camera.y + y / camera.zoom 
     }; 
 }
 
@@ -37,27 +37,25 @@ export function findClosest(entity, list, condition = () => true, maxDist = Infi
 }
 
 export function updateGridForObject(obj, walkable) {
-    const { state } = G;
+    const { grid } = G.state;
     const size = obj.size || { w: obj.radius * 2, h: obj.radius * 2 };
     const start = worldToGrid(obj.x - size.w / 2, obj.y - size.h / 2);
     const end = worldToGrid(obj.x + size.w / 2, obj.y + size.h / 2);
     for (let y = start.y; y <= end.y; y++) {
         for (let x = start.x; x <= end.x; x++) {
-            if (state.grid[y]?.[x]) {
-                state.grid[y][x].walkable = walkable;
+            if (grid[y]?.[x]) {
+                grid[y][x].walkable = walkable;
             }
         }
     }
 }
 
 export function findWalkableNeighbor(gridPos, startPos) {
-    const { state } = G;
-    if (!gridPos || !state.grid[gridPos.y] || !state.grid[gridPos.y][gridPos.x]) return null;
+    if (!gridPos || !G.state.grid[gridPos.y] || !G.state.grid[gridPos.y][gridPos.x]) return null;
     
-    const node = state.grid[gridPos.y][gridPos.x];
+    const node = G.state.grid[gridPos.y][gridPos.x];
     if (node.walkable) return node;
-
-    // A simple breadth-first search for the nearest walkable tile
+    
     const queue = [node];
     const visited = new Set([`${node.x},${node.y}`]);
     
@@ -78,7 +76,7 @@ export function findWalkableNeighbor(gridPos, startPos) {
 }
 
 function getNeighborsForBFS(node) {
-    const { state } = G;
+    const { grid } = G.state;
     const neighbors = [];
     const { x, y } = node;
     const gridW = CONFIG.WORLD_WIDTH / CONFIG.GRID_SIZE;
@@ -89,8 +87,36 @@ function getNeighborsForBFS(node) {
         const newX = x + dx;
         const newY = y + dy;
         if (newX >= 0 && newX < gridW && newY >= 0 && newY < gridH) {
-            neighbors.push(state.grid[newY][newX]);
+            neighbors.push(grid[newY][newX]);
         }
     }
     return neighbors;
+}
+
+export function assignHomes() {
+    G.state.buildings.forEach(b => { if (b.residents) b.residents = []; });
+    G.state.settlers.forEach(s => s.home = null);
+
+    const allHuts = G.state.buildings.filter(b => (b.type === 'hut' || b.type === 'stone_house') && !b.isUnderConstruction && !b.isUpgrading);
+    const unsettledAdults = G.state.settlers.filter(s => !s.isChild);
+    const unsettledChildren = G.state.settlers.filter(s => s.isChild);
+
+    for (const hut of allHuts) {
+        const capacity = CONFIG.BUILDINGS[hut.type].housing;
+        while(hut.residents.length < capacity) {
+            const settler = unsettledAdults.shift();
+            if (!settler) break;
+            hut.residents.push(settler);
+            settler.home = hut;
+        }
+    }
+     for (const hut of allHuts) {
+        const capacity = CONFIG.BUILDINGS[hut.type].housing;
+        while(hut.residents.length < capacity) {
+            const child = unsettledChildren.shift();
+            if (!child) break;
+            hut.residents.push(child);
+            child.home = hut;
+        }
+    }
 }
