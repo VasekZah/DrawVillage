@@ -1,5 +1,3 @@
-// js/main.js
-
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 import { Settler, Building, WorldObject, Child } from './classes.js';
@@ -7,11 +5,10 @@ import { OutlineDrawer } from './drawing.js';
 import { manageTasks } from './taskManager.js';
 import { screenToWorld, addEntity, removeEntity, setNotification, addBuilding, findClosestEntity, createResourcePile } from './helpers.js';
 import { initDrawingModal } from './drawingModal.js';
-import { getAssetImg } from './uiHelpers.js'; // <-- Importujeme novou funkci
+import { getAssetImg } from './uiHelpers.js';
 
 // --- INICIALIZACE ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Nejprve přiřadíme všechny DOM elementy do G objektu
     Object.assign(G, {
         gameCanvas: document.getElementById('gameCanvas'),
         tooltipElement: document.getElementById('tooltip'),
@@ -27,10 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
             dayNightOverlay: document.getElementById('dayNightOverlay'),
             timeControls: document.getElementById('time-controls'),
         },
-        // Herní stav inicializujeme zde
         state: {
-            userAssets: {}, // Data URL z kreslení
-            loadedUserAssets: {}, // Načtené obrázky (Image objekty)
+            userAssets: {},
+            loadedUserAssets: {},
             resources: { wood: 50, stone: 20, food: 40 },
             entities: [], settlers: [], buildings: [], worldObjects: [], tasks: [], grid: [],
             camera: { x: CONFIG.WORLD_SIZE / 2, y: CONFIG.WORLD_SIZE / 2, zoom: 1.2 },
@@ -46,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     G.ctx = G.gameCanvas.getContext('2d', { alpha: false });
 
-    // Až teď, když je G plně připraveno, spustíme kreslící okno
     initDrawingModal(init);
 });
 
@@ -77,18 +72,17 @@ function init() {
     gameLoop();
 }
 
-// --- MAIN LOOP & DRAWING ---
 let lastTime = 0;
 function gameLoop(timestamp) {
     const deltaTime = (timestamp - lastTime) || 0;
     lastTime = timestamp;
-
     if (!G.state.isPaused) {
         update(deltaTime * G.state.timeScale);
     }
     draw();
     requestAnimationFrame(gameLoop);
 }
+
 function update(deltaTime) {
     if(deltaTime === 0) return;
     G.state.timeOfDay = (G.state.timeOfDay + deltaTime / CONFIG.DAY_LENGTH_MS) % 1;
@@ -97,11 +91,9 @@ function update(deltaTime) {
         G.state.day = currentDay;
         handleDailyEvents();
     }
-
     for (const row of G.state.grid) for (const cell of row) if (cell.wear > 0) cell.wear = Math.max(0, cell.wear - CONFIG.PATH_DECAY_RATE * deltaTime);
     updateCamera(deltaTime);
     G.state.entities.forEach(e => e.update(deltaTime));
-
     const homeless = G.state.settlers.filter(s => !s.homeId || !G.state.buildings.some(b => b.id === s.homeId));
     const availableHuts = G.state.buildings.filter(b => b.type === 'hut' && b.status === 'operational' && b.residents.length < CONFIG.BUILDING_INFO.hut.housing);
     for (const settler of homeless) {
@@ -109,11 +101,9 @@ function update(deltaTime) {
         if (home) { settler.homeId = home.id; home.residents.push(settler.id); }
         else break;
     }
-
     const assignedJobs = {};
     for(const job of Object.keys(CONFIG.JOBS)) assignedJobs[job] = 0;
     G.state.settlers.filter(s => s.type === 'settler').forEach(s => { if(s.job !== 'unemployed') assignedJobs[s.job]++; });
-
     for (const jobId in G.state.jobQuotas) {
         const diff = G.state.jobQuotas[jobId] - assignedJobs[jobId];
         if (diff > 0) {
@@ -131,11 +121,9 @@ function handleDailyEvents() {
         G.state.reproductionCooldown--;
         return;
     }
-
     const adultPopulation = G.state.settlers.filter(s => s.type === 'settler');
     const totalPopulation = G.state.settlers.length;
     const housingCapacity = G.state.buildings.filter(b => b.type === 'hut' && b.status === 'operational').reduce((sum, b) => sum + (CONFIG.BUILDING_INFO.hut.housing || 0), 0);
-
     if (totalPopulation < housingCapacity && adultPopulation.length >= 2) {
         if (Math.random() < CONFIG.REPRODUCTION_CHANCE_PER_DAY) {
             const home = G.state.buildings.find(b => b.type === 'hut' && b.status === 'operational' && b.residents.length < CONFIG.BUILDING_INFO.hut.housing);
@@ -158,32 +146,28 @@ function updateCamera(deltaTime) {
     G.state.camera.x = Math.max(0, Math.min(CONFIG.WORLD_SIZE, G.state.camera.x));
     G.state.camera.y = Math.max(0, Math.min(CONFIG.WORLD_SIZE, G.state.camera.y));
 }
+
 function draw() {
     G.ctx.fillStyle = '#f7fafc';
     G.ctx.fillRect(0, 0, G.gameCanvas.width, G.gameCanvas.height);
-
     G.ctx.save();
     G.ctx.translate(G.gameCanvas.width / 2, G.gameCanvas.height / 2);
     G.ctx.scale(G.state.camera.zoom, G.state.camera.zoom);
     G.ctx.translate(-G.state.camera.x, -G.state.camera.y);
-
     const viewBounds = {
         x1: G.state.camera.x - (G.gameCanvas.width / 2) / G.state.camera.zoom,
         y1: G.state.camera.y - (G.gameCanvas.height / 2) / G.state.camera.zoom,
         x2: G.state.camera.x + (G.gameCanvas.width / 2) / G.state.camera.zoom,
         y2: G.state.camera.y + (G.gameCanvas.height / 2) / G.state.camera.zoom,
     };
-
     if (G.state.grassPattern) {
         G.ctx.fillStyle = G.state.grassPattern;
         G.ctx.fillRect(viewBounds.x1, viewBounds.y1, viewBounds.x2 - viewBounds.x1, viewBounds.y2 - viewBounds.y1);
     }
-
     const startY = Math.max(0, Math.floor(viewBounds.y1 / CONFIG.GRID_SIZE));
     const endY = Math.min(G.state.grid.length, Math.ceil(viewBounds.y2 / CONFIG.GRID_SIZE));
     const startX = Math.max(0, Math.floor(viewBounds.x1 / CONFIG.GRID_SIZE));
     const endX = Math.min(G.state.grid[0]?.length || 0, Math.ceil(viewBounds.x2 / CONFIG.GRID_SIZE));
-
     for (let y = startY; y < endY; y++) {
         for (let x = startX; x < endX; x++) {
             const cell = G.state.grid[y][x];
@@ -193,13 +177,11 @@ function draw() {
             }
         }
     }
-
     const visibleEntities = G.state.entities.filter(e =>
         e.x + e.radius > viewBounds.x1 && e.x - e.radius < viewBounds.x2 &&
         e.y + e.radius > viewBounds.y1 && e.y - e.radius < viewBounds.y2
     );
     visibleEntities.sort((a, b) => a.y - b.y).forEach(e => e.draw());
-
     const highlighted = G.state.selectedObject || G.state.hoveredObject;
     if (highlighted) {
         G.ctx.strokeStyle = G.state.selectedObject === highlighted ? '#2d3748' : '#718096';
@@ -217,33 +199,29 @@ function draw() {
         const y = Math.round(G.state.mouse.worldY / CONFIG.GRID_SIZE) * CONFIG.GRID_SIZE;
         G.ctx.save();
         G.ctx.translate(x, y);
-
         OutlineDrawer.draw(G.ctx, { type: G.state.buildMode, radius: info.size.w/2, size: info.size, x:0, y:0 });
-
         G.ctx.globalAlpha = 1.0;
         G.ctx.strokeStyle = '#2d3748';
         G.ctx.lineWidth = 2 / G.state.camera.zoom;
         G.ctx.setLineDash([6 / G.state.camera.zoom, 4 / G.state.camera.zoom]);
         G.ctx.strokeRect(-info.size.w / 2, -info.size.h / 2, info.size.w, info.size.h);
         G.ctx.setLineDash([]);
-
         G.ctx.restore();
     }
     G.ctx.restore();
     updateUI();
 }
+
 function updateUI() {
     document.getElementById('woodCount').textContent = Math.floor(G.state.resources.wood);
     document.getElementById('stoneCount').textContent = Math.floor(G.state.resources.stone);
     document.getElementById('foodCount').textContent = Math.floor(G.state.resources.food);
-
     const totalPopulation = G.state.settlers.length;
     const housingCapacity = G.state.buildings.filter(b => b.type === 'hut' && b.status === 'operational').reduce((sum, b) => sum + (CONFIG.BUILDING_INFO.hut.housing || 0), 0);
     G.ui.populationDisplay.innerHTML = `${getAssetImg('icon_settler')} <span class="font-semibold">${totalPopulation} / ${housingCapacity}</span>`;
     G.ui.dayDisplay.innerHTML = `${getAssetImg('icon_day')} <span class="font-semibold">${G.state.day}</span>`;
     const timeNames = ["Night", "Morning", "Noon", "Evening"];
     G.ui.timeDisplay.innerHTML = `${getAssetImg('icon_time')} <span class="font-semibold">${timeNames[Math.floor(G.state.timeOfDay * 4)]}</span>`;
-
     let assignedCount = 0;
     const adultPopulation = G.state.settlers.filter(s => s.type === 'settler').length;
     Object.entries(G.state.jobQuotas).forEach(([jobId, count]) => {
@@ -252,12 +230,10 @@ function updateUI() {
         assignedCount += count;
     });
     G.ui.idleDisplay.innerHTML = `${getAssetImg('icon_idle')} <span class="font-bold">${Math.max(0, adultPopulation - assignedCount)}</span>`;
-
     const time = G.state.timeOfDay;
     let overlayColor;
     const nightOpacity = 0.5;
     const eveningOpacity = 0.25;
-
     if (time < 0.25) {
         const progress = time / 0.25;
         overlayColor = `rgba(45, 55, 72, ${(1 - progress) * nightOpacity})`;
@@ -277,28 +253,24 @@ function updateUI() {
         overlayColor = `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${opacity})`;
     }
     G.ui.dayNightOverlay.style.backgroundColor = overlayColor;
-
     const hasFarm = G.state.buildings.some(b => b.type === 'farm' && b.status === 'operational');
     const hasLodge = G.state.buildings.some(b => b.type === 'foresterLodge' && b.status === 'operational');
     document.querySelectorAll('[data-job-controls="farmer"]').forEach(el => el.style.display = hasFarm ? 'flex' : 'none');
     document.querySelectorAll('[data-job-controls="forester"]').forEach(el => el.style.display = hasLodge ? 'flex' : 'none');
     if(!hasFarm && G.state.jobQuotas.farmer > 0) G.state.jobQuotas.farmer = 0;
     if(!hasLodge && G.state.jobQuotas.forester > 0) G.state.jobQuotas.forester = 0;
-
     document.getElementById('pauseBtn').classList.toggle('active', G.state.isPaused);
     document.getElementById('playBtn').classList.toggle('active', !G.state.isPaused && G.state.timeScale === 1);
     document.getElementById('ff2Btn').classList.toggle('active', !G.state.isPaused && G.state.timeScale === 2);
     document.getElementById('ff4Btn').classList.toggle('active', !G.state.isPaused && G.state.timeScale === 4);
 }
+
 function updateHoveredObject(e) {
     const rect = G.gameCanvas.getBoundingClientRect();
     const isOverCanvas = e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
-
     G.tooltipElement.style.left = `${e.clientX + 15}px`;
     G.tooltipElement.style.top = `${e.clientY + 15}px`;
-
     let activeTooltip = false;
-
     if (isOverCanvas) {
         G.state.hoveredObject = findClosestEntity({x: G.state.mouse.worldX, y: G.state.mouse.worldY}, en => Math.hypot(G.state.mouse.worldX - en.x, G.state.mouse.worldY - en.y) < en.radius * 1.2, 32);
         if(G.state.hoveredObject) {
@@ -306,13 +278,11 @@ function updateHoveredObject(e) {
             activeTooltip = true;
         }
     }
-
     const uiElement = e.target.closest('[data-tooltip]');
     if (uiElement) {
         G.tooltipElement.innerHTML = uiElement.dataset.tooltip;
         activeTooltip = true;
     }
-
     G.tooltipElement.style.display = activeTooltip ? 'block' : 'none';
 }
 
@@ -320,7 +290,6 @@ function addEventListeners() {
     window.addEventListener('resize', resizeCanvas);
     window.addEventListener('keydown', e => { G.state.keysPressed[e.key.toLowerCase()] = true; });
     window.addEventListener('keyup', e => { G.state.keysPressed[e.key.toLowerCase()] = false; if (e.key === 'Escape') { G.state.buildMode = null; G.gameCanvas.classList.remove('build-mode'); G.state.selectedObject = null; } });
-
     window.addEventListener('mousemove', e => {
         const rect = G.gameCanvas.getBoundingClientRect();
         G.state.mouse.x = e.clientX - rect.left;
@@ -330,7 +299,6 @@ function addEventListeners() {
         G.state.mouse.worldY = worldPos.y;
         updateHoveredObject(e);
     });
-
     G.gameCanvas.addEventListener('mousedown', e => {
         if (e.button === 0) {
             if (G.state.buildMode) {
@@ -364,7 +332,6 @@ function addEventListeners() {
         G.state.camera.y = worldPos.y - (G.state.mouse.y - G.gameCanvas.height / 2) / G.state.camera.zoom;
     }, { passive: false });
     G.gameCanvas.addEventListener('contextmenu', e => e.preventDefault());
-
     G.ui.jobManagement.addEventListener('click', e => {
         const button = e.target.closest('button');
         if (!button || button.disabled) return;
@@ -375,6 +342,7 @@ function addEventListeners() {
         else if (change < 0 && G.state.jobQuotas[job] > 0) G.state.jobQuotas[job]--;
     });
 }
+
 function setupUI() {
     G.ui.resourceDisplay.innerHTML = Object.keys(CONFIG.RESOURCES_INFO).map(id => `
         <div data-tooltip="${CONFIG.RESOURCES_INFO[id].name}" class="flex items-center gap-2">
@@ -382,26 +350,20 @@ function setupUI() {
             <span id="${id}Count" class="font-semibold">0</span>
         </div>
     `).join('');
-
     G.ui.buildManagement.innerHTML = '';
     Object.entries(CONFIG.BUILDING_INFO).forEach(([id, info]) => {
         const button = document.createElement('button');
         button.className = 'btn p-2 rounded-lg w-full h-16 flex items-center justify-center relative text-center';
-        
         const costString = Object.entries(CONFIG.BUILDING_COSTS[id]).map(([res, val]) => `${getAssetImg(res, 'inline-block w-4 h-4')} ${val}`).join(' ');
         const tooltipContent = `<b>${info.name}</b><br>${info.description}<br>Cost: ${costString}`;
-        
         button.innerHTML = `<span>${info.name}</span><div class="build-btn-canvas absolute bottom-1 right-1">${getAssetImg(id, 'w-8 h-8')}</div>`;
         button.dataset.tooltip = tooltipContent;
-
         button.addEventListener('click', () => {
              G.state.buildMode = id;
              G.gameCanvas.classList.add('build-mode');
         });
-
         G.ui.buildManagement.appendChild(button);
     });
-
     G.ui.jobManagement.innerHTML = '';
     Object.keys(CONFIG.JOBS).forEach(id => {
         const info = CONFIG.JOBS[id];
@@ -411,23 +373,19 @@ function setupUI() {
         if (id === 'farmer' || id === 'forester') {
             div.style.display = 'none';
         }
-
         const iconSpan = document.createElement('span');
         iconSpan.className = 'flex items-center gap-2 text-lg';
         iconSpan.innerHTML = `${getAssetImg('icon_' + id)} <span>${info.name}</span>`;
         iconSpan.dataset.tooltip = `<b>${info.name}</b><br>${info.description}`;
-
         const controls = document.createElement('div');
         controls.className = 'flex items-center gap-2 job-control';
         controls.innerHTML = `<button class="rounded" data-job="${id}" data-change="-1">-</button>
                               <span id="${id}Count" class="w-6 text-center font-bold text-lg">0</span>
                               <button class="rounded" data-job="${id}" data-change="1">+</button>`;
-
         div.appendChild(iconSpan);
         div.appendChild(controls);
         G.ui.jobManagement.appendChild(div);
     });
-
     G.ui.timeControls.innerHTML = `
         <button id="pauseBtn" class="time-control rounded" data-tooltip="Pause (Space)">${getAssetImg('icon_pause', 'w-full h-full p-1')}</button>
         <button id="playBtn" class="time-control rounded active" data-tooltip="Normal Speed (1)">${getAssetImg('icon_play', 'w-full h-full p-1')}</button>
@@ -439,6 +397,7 @@ function setupUI() {
     document.getElementById('ff2Btn').addEventListener('click', () => { G.state.isPaused = false; G.state.timeScale = 2; });
     document.getElementById('ff4Btn').addEventListener('click', () => { G.state.isPaused = false; G.state.timeScale = 4; });
 }
+
 const resizeCanvas = () => {
     const container = G.gameCanvas.parentElement;
     G.gameCanvas.width = container.offsetWidth;
