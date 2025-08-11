@@ -7,15 +7,22 @@ canvas.build-mode { cursor: crosshair; }
 .btn:hover:not(:disabled) { background-color: #f7fafc; border-color: #a0aec0; transform: translateY(-1px); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { background-color: #edf2f7; cursor: not-allowed; color: #a0aec0; border-color: #e2e8f0; }
-.job-control button, .time-control button { background-color: #ffffff; width: 32px; height: 32px; line-height: 1; border: 1px solid #cbd5e0; transition: all 0.2s; color: #4a5568; }
-.job-control button:hover:not(:disabled), .time-control button:hover:not(:disabled) { background-color: #f7fafc; border-color: #a0aec0; }
+.job-control button { background-color: #ffffff; width: 32px; height: 32px; line-height: 1; border: 1px solid #cbd5e0; transition: all 0.2s; color: #4a5568; }
+.job-control button:hover:not(:disabled) { background-color: #f7fafc; border-color: #a0aec0; }
+
+/* --- ADJUSTED SIZE --- Smaller time control buttons */
+.time-control button { background-color: #ffffff; width: 28px; height: 28px; line-height: 1; border: 1px solid #cbd5e0; transition: all 0.2s; color: #4a5568; }
+.time-control button:hover:not(:disabled) { background-color: #f7fafc; border-color: #a0aec0; }
 .time-control button.active { background-color: #2d3748; border-color: #1a202c; color: white; }
+
 .scrollable-panel { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #a0aec0 #edf2f7; }
 .tooltip { position: fixed; padding: 10px 14px; background-color: rgba(10, 10, 10, 0.95); color: white; border-radius: 8px; font-size: 14px; pointer-events: none; z-index: 1000; white-space: pre-wrap; display: none; border: 1px solid #4a5568; max-width: 250px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
 .notification { position: absolute; bottom: 1.5rem; left: 50%; background-color: #2d3748; color: white; padding: 12px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); opacity: 0; transition: opacity 0.5s, transform 0.5s; transform: translate(-50%, 20px); z-index: 1000; pointer-events: none; text-align: center; }
 .notification.show { opacity: 1; transform: translate(-50%, 0); }
 .build-btn-canvas { pointer-events: none; }
-.ui-section-header { border-bottom: 2px solid #e2e8f0; padding-bottom: 0.5rem; margin-bottom: 0.75rem; }
+
+/* --- FIXED OVERLAP --- Added more padding to prevent overlap with time buttons */
+.ui-section-header { border-bottom: 2px solid #e2e8f0; padding-bottom: 1.25rem; margin-bottom: 0.75rem; }
 .ui-section-header h2 { font-size: 1.5rem; font-weight: bold; color: #2d3748; }
 .icon { display: inline-block; width: 24px; height: 24px; vertical-align: middle; }
 
@@ -24,18 +31,5 @@ canvas.build-mode { cursor: crosshair; }
 #drawing-canvas { border: 2px solid #4a5568; cursor: crosshair; touch-action: none; }
 #asset-list li { cursor: pointer; padding: 8px; border-radius: 6px; transition: background-color 0.2s, color 0.2s; border-left: 4px solid transparent; }
 #asset-list li.active { background-color: #4299e1; color: white; }
-
-/* --- IMPROVED STYLE FOR DRAWN ITEMS --- */
-#asset-list li.drawn {
-    font-style: normal; /* Remove italics */
-    color: #2d3748;     /* Use standard text color */
-    background-color: #c6f6d5; /* Add a light green background to indicate completion */
-    border-left: 4px solid #48bb78; /* Add a green left border for emphasis */
-}
-
-/* Style for an active item that has also been drawn */
-#asset-list li.drawn.active {
-    background-color: #4299e1; /* Keep the blue background for active selection */
-    color: white;
-    border-left-color: #fff; /* Change the border color to be visible on blue */
-}
+#asset-list li.drawn { font-style: normal; color: #2d3748; background-color: #c6f6d5; border-left: 4px solid #48bb78; }
+#asset-list li.drawn.active { background-color: #4299e1; color: white; border-left-color: #fff; }
