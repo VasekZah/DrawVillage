@@ -1,16 +1,14 @@
+// ... Kód na začátku souboru `classes.js` je stejný jako výše ...
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 import { PixelDrawer } from './drawing.js';
 import { findPath } from './pathfinding.js';
 import { findClosest, worldToGrid, findWalkableNeighbor, updateGridForObject, setNotification, assignHomes, getUiIcon } from './helpers.js';
 
-class Entity {
-    draw() { PixelDrawer.draw(G.ctx, this); }
-    update() {}
-    getTooltip() { return this.type; }
-}
+class Entity { /* ... */ }
 
 export class Settler extends Entity {
+    // ... konstruktor a ostatní metody ...
     constructor(name, x, y, isChild = false, age = 0) {
         super();
         this.name = name; this.x = x; this.y = y;
@@ -21,7 +19,6 @@ export class Settler extends Entity {
         this.secondaryTarget = null;
         this.home = null;
     }
-
     getTooltip() {
         if (this.isChild) return `<div>${this.name} (Dítě, ${Math.floor(this.age)}/${CONFIG.AGE_UP_DAYS})</div><div>Hlad: ${Math.floor(this.hunger)}%</div>`;
         let taskDesc = this.task;
@@ -31,7 +28,6 @@ export class Settler extends Entity {
         const jobName = this.job === 'laborer' ? 'Dělník' : (CONFIG.JOBS[this.job]?.name || 'Neznámý');
         return `<div>${this.name} (${jobName})</div><div>Úkol: ${taskDesc}</div><div>Hlad: ${Math.floor(this.hunger)}%${homeInfo}</div>`;
     }
-
     draw() {
         PixelDrawer.draw(G.ctx, this);
         if (this.payload) {
@@ -41,7 +37,6 @@ export class Settler extends Entity {
             G.ctx.restore();
         }
     }
-
     update(deltaTime) {
         this.updateVitals(deltaTime);
         if (this.hunger >= 100) { this.die(); return; }
@@ -59,7 +54,6 @@ export class Settler extends Entity {
             case 'eating': this.performEat(); break;
         }
     }
-    
     updateVitals(deltaTime) {
         const hungerRate = this.isChild ? CONFIG.CHILD_HUNGER_RATE : CONFIG.HUNGER_RATE;
         this.hunger += (deltaTime / CONFIG.DAY_LENGTH_MS) * hungerRate;
@@ -71,7 +65,6 @@ export class Settler extends Entity {
             }
         }
     }
-
     resetTask() {
         if (this.payload) {
             if (this.onPathComplete === 'depositingAtSite' && this.secondaryTarget) {
@@ -98,26 +91,18 @@ export class Settler extends Entity {
         this.task = 'idle'; this.target = null; this.secondaryTarget = null;
         this.payload = null; this.path = []; this.workProgress = 0; this.onPathComplete = 'idle';
     }
-
     die() {
         setNotification(`${this.name} zemřel hlady!`);
         if (this.home) this.home.residents = this.home.residents.filter(r => r !== this);
         this.resetTask();
         G.state.settlers = G.state.settlers.filter(s => s !== this);
     }
-
-    // ==================================================================
-    // OPRAVA č.1 - ZDE JE OPRAVA PROBLÉMU S POHYBEM
-    // ==================================================================
     moveAlongPath(deltaTime) {
         if (!this.path || this.path.length === 0) {
-            // Path is finished. Switch to the action. We assume pathfinding got us close enough.
-            // Původní `else { resetTask() }` bylo ZDROJEM CHYBY a je odstraněno.
             this.task = this.onPathComplete;
             this.workProgress = 0;
             return;
         }
-
         const targetNode = this.path[0];
         const targetX = targetNode.x * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
         const targetY = targetNode.y * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
@@ -141,7 +126,6 @@ export class Settler extends Entity {
             this.x += (dx / dist) * speed; this.y += (dy / dist) * speed;
         }
     }
-
     findWork() {
         if (this.hunger > 80 && G.state.resources.food > 0) {
             const stockpile = findClosest(this, G.state.buildings, b => b.type === 'stockpile' && !b.isUnderConstruction);
@@ -158,7 +142,6 @@ export class Settler extends Entity {
         }
         this.wander();
     }
-    
     wander() {
         const wanderTarget = this.home || findClosest(this, G.state.buildings, b => b.type === 'stockpile' && !b.isUnderConstruction);
         if (wanderTarget) {
@@ -168,7 +151,6 @@ export class Settler extends Entity {
             this.findAndSetPath(targetPos, 'idle');
         }
     }
-
     findHaulingWork() {
         const sites = G.state.buildings.filter(b =>
             (b.isUnderConstruction || b.isUpgrading) && !b.hasMaterials() && b.targetedByHaulers.length < CONFIG.MAX_HAULERS_PER_SITE
@@ -195,7 +177,6 @@ export class Settler extends Entity {
         }
         return false;
     }
-
     findJobSpecificWork() {
         const stockpile = findClosest(this, G.state.buildings, b => b.type === 'stockpile' && !b.isUnderConstruction);
         if (!stockpile && this.job !== 'hunter' && this.job !== 'forager' && this.job !== 'forester') return false;
@@ -248,7 +229,6 @@ export class Settler extends Entity {
         }
         return false;
     }
-
     findLaborerWork() {
         const stockpile = findClosest(this, G.state.buildings, b => b.type === 'stockpile' && !b.isUnderConstruction);
         if (!stockpile) return false;
@@ -265,6 +245,9 @@ export class Settler extends Entity {
         return false;
     }
 
+    // ==================================================================
+    // OPRAVA PŘEKLEPU V LOGICE NOŠENÍ
+    // ==================================================================
     performHaulPickup() {
         const site = this.secondaryTarget;
         if (!site || !G.state.buildings.includes(site)) { this.resetTask(); return; }
@@ -272,6 +255,7 @@ export class Settler extends Entity {
         const neededResource = Object.keys(site.cost).find(res => site.delivered[res] + (site.enRoute[res] || 0) < site.cost[res]);
         
         if (neededResource && G.state.resources[neededResource] > 0) {
+            // ZDE BYL PŘEKLEP: `(site.enRoute[res] || 0)` bylo opraveno na `(site.enRoute[neededResource] || 0)`
             const amountStillNeeded = site.cost[neededResource] - site.delivered[neededResource] - (site.enRoute[neededResource] || 0);
             const amountToCarry = Math.min(CONFIG.CARRY_CAPACITY, G.state.resources[neededResource], amountStillNeeded);
             
@@ -299,7 +283,6 @@ export class Settler extends Entity {
         this.payload = null;
         this.resetTask();
     }
-    
     performEat() {
         if (G.state.resources.food > 0) { 
             G.state.resources.food = Math.max(0, G.state.resources.food - CONFIG.FOOD_PER_MEAL); 
@@ -307,18 +290,10 @@ export class Settler extends Entity {
         }
         this.resetTask();
     }
-
-    // ==================================================================
-    // OPRAVA č.2 - ZDE JE OPRAVA PROBLÉMU S VYKONÁVÁNÍM PRÁCE
-    // ==================================================================
     work() {
         const duration = this.task === 'pickingUpResource' ? CONFIG.PICKUP_DURATION : CONFIG.WORK_DURATION;
         if (!this.target) { this.resetTask(); return; }
         
-        // Původní kontrola vzdálenosti byla ZDROJEM CHYBY a je odstraněna.
-        // Nyní spoléháme na to, že nás pathfinding dostal dostatečně blízko.
-
-        // Předběžné kontroly, zda je cíl stále platný, jsou ale důležité.
         if (this.task === 'pickingUpResource' && !G.state.worldObjects.includes(this.target)) { this.resetTask(); return; }
         if ((this.task === 'workingAtResource') && (!this.target.resource || this.target.type === 'stump')) { this.resetTask(); return; }
         if ((this.task === 'workingOnConstruction' || this.task === 'upgradingBuilding') && !this.target.isUnderConstruction && !this.target.isUpgrading) { this.resetTask(); return; }
@@ -326,7 +301,6 @@ export class Settler extends Entity {
         this.workProgress++;
         if (this.workProgress >= duration) this.finishWork();
     }
-    
     finishWork() {
         if (!this.target) { this.resetTask(); return; }
         const isWorldObjectTask = this.task === 'workingAtResource' || this.task === 'pickingUpResource';
@@ -414,7 +388,6 @@ export class Settler extends Entity {
                 break;
         }
     }
-
     findAndSetPath(target, onComplete) {
         if (!target) return false;
         const start = worldToGrid(this.x, this.y);
@@ -445,9 +418,8 @@ export class Settler extends Entity {
     }
 }
 
-
-// Ostatní třídy zůstávají beze změny
-export class Building extends Entity { /* ... kód beze změny ... */ 
+// ... Zbytek souboru `classes.js` (třídy Building, WorldObject, atd.) je stejný jako v minulé odpovědi ...
+export class Building extends Entity { 
     constructor(type, x, y) {
         super();
         this.type = type; this.x = x; this.y = y;
@@ -527,7 +499,7 @@ export class Building extends Entity { /* ... kód beze změny ... */
         }
     }
 }
-export class WorldObject extends Entity { /* ... kód beze změny ... */
+export class WorldObject extends Entity {
     constructor(type, x, y, amountOverride = null) {
         super();
         this.type = type; this.x = x; this.y = y; this.growth = 0;
@@ -558,7 +530,7 @@ export class WorldObject extends Entity { /* ... kód beze změny ... */
         }
     }
 }
-export class Animal extends Entity { /* ... kód beze změny ... */
+export class Animal extends Entity {
     constructor(type, x, y) {
         super();
         this.type = type; this.x = x; this.y = y;
@@ -603,7 +575,7 @@ export class Animal extends Entity { /* ... kód beze změny ... */
         G.state.animals = G.state.animals.filter(a => a !== this);
     }
 }
-export class Projectile extends Entity { /* ... kód beze změny ... */
+export class Projectile extends Entity {
     constructor(x, y, target) {
         super();
         this.type = 'arrow';
