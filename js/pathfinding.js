@@ -1,13 +1,6 @@
-import { state, CONFIG } from './config.js';
-
-function getNeighbors(node) {
-    const neighbors = []; const { x, y } = node;
-    for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) {
-        if ((i === 0 && j === 0) || !state.grid[y + j]?.[x + i]) continue;
-        neighbors.push(state.grid[y + j][x + i]);
-    }
-    return neighbors;
-}
+import { G } from './globals.js';
+import { CONFIG } from './config.js';
+import { getNeighbors } from './helpers.js';
 
 // --- PATHFINDING A* ---
 export function findPath(startNode, endNode) {
