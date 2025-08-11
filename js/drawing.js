@@ -1,3 +1,6 @@
+import { G } from './globals.js';
+import { CONFIG } from './config.js';
+
 export const PixelDrawer = {
     draw: (ctx, entity) => {
         ctx.save();
