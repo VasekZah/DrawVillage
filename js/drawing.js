@@ -1,6 +1,5 @@
 import { G } from './globals.js';
 
-// --- ART DRAWER ---
 export const OutlineDrawer = {
     colors: {
         fill: '#f7fafc',
@@ -12,8 +11,10 @@ export const OutlineDrawer = {
     createGrassPattern(ctx) {
         const patternCanvas = document.createElement('canvas');
         const patternCtx = patternCanvas.getContext('2d');
-        patternCanvas.width = 32; patternCanvas.height = 32;
-        patternCtx.fillStyle = this.colors.ground; patternCtx.fillRect(0,0,32,32);
+        patternCanvas.width = 32;
+        patternCanvas.height = 32;
+        patternCtx.fillStyle = this.colors.ground;
+        patternCtx.fillRect(0,0,32,32);
         patternCtx.strokeStyle = this.colors.groundDetail;
         patternCtx.lineWidth = 1;
         for(let i=0; i<20; i++){
@@ -29,15 +30,18 @@ export const OutlineDrawer = {
         ctx.save();
         ctx.translate(Math.floor(entity.x), Math.floor(entity.y));
 
-        const assetKey = entity.type.startsWith('resource_') ? entity.resourceType : entity.type;
+        // OPRAVA 1: Zpřesněná logika pro nalezení správného obrázku pro hromádky surovin.
+        const assetKey = entity.type === 'resource_pile' ? entity.resourceType : entity.type;
+        
+        // OPRAVA 2: Správná cesta k načteným obrázkům v G.state.
+        const img = G.state.loadedUserAssets[assetKey];
 
-        if (G.loadedUserAssets[assetKey]) {
-            const img = G.loadedUserAssets[assetKey];
+        if (img) {
             const drawWidth = entity.radius * 2.5;
             const drawHeight = (img.height / img.width) * drawWidth;
             ctx.drawImage(img, -drawWidth / 2, -drawHeight + entity.radius * 0.5, drawWidth, drawHeight);
         } else {
-            // Draw a placeholder if no user asset exists
+            // Záložní zobrazení, pokud obrázek chybí
             ctx.strokeStyle = this.colors.placeholder;
             ctx.fillStyle = this.colors.placeholder;
             ctx.lineWidth = 2;
