@@ -1,6 +1,6 @@
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
-import { SpriteDrawer } from './drawing.js'; // OPRAVENO ZDE
+import { SpriteDrawer } from './drawing.js'; // OPRAVA ZDE
 import { findClosestEntity, removeEntity, findWalkableNeighbor, worldToGrid, addEntity, setNotification, isTargeted } from './helpers.js';
 import { findPath } from './pathfinding.js';
 import { TaskActions } from './taskLogic.js';
@@ -9,7 +9,7 @@ import { getUiIcon } from './uiHelpers.js';
 class Entity {
     constructor(type, x, y) { this.id = G.state.nextId++; this.type = type; this.x = x; this.y = y; this.radius = 16; }
     draw() {
-        SpriteDrawer.draw(G.ctx, this); // OPRAVENO ZDE
+        SpriteDrawer.draw(G.ctx, this); // OPRAVA ZDE
     }
     update(deltaTime) {}
     getTooltip() { return this.type; }
