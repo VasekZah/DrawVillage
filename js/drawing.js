@@ -3,36 +3,30 @@ import { CONFIG } from './config.js';
 import { Humanoid } from './classes.js';
 import { PIXEL_ASSETS } from './pixel-assets.js';
 
-// Cache pro již načtené obrázky a jejich barevné varianty
+// Cache pro VŠECHNY finální sprity (včetně barevných variant)
 const spriteCache = new Map();
 
-// Funkce, která vezme šedý obrázek a dobarví ho danou barvou.
-// Vrací nový <canvas> element, který se dá vykreslit.
-function colorizeSprite(sourceImage, color) {
-    // Klíč pro cachování barevných variant
-    const cacheKey = `${sourceImage.src.substring(22, 52)}-${color}`;
-    if (spriteCache.has(cacheKey)) {
-        return spriteCache.get(cacheKey);
-    }
-
+// Pomocná funkce pro dobarvení, vrací nový <canvas> element
+function createColorizedSprite(sourceImage, color) {
     const canvas = document.createElement('canvas');
     canvas.width = sourceImage.width;
     canvas.height = sourceImage.height;
     const ctx = canvas.getContext('2d');
     
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(sourceImage, 0, 0);
     ctx.globalCompositeOperation = 'source-in';
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    spriteCache.set(cacheKey, canvas);
     return canvas;
 }
 
 export const SpriteDrawer = {
-    // Tato funkce načte VŠECHNY sprity z pixel-assets.js PŘEDEM.
+    // Načte VŠECHNY sprity a PŘEDEM VYTVOŘÍ barevné varianty
     loadAllSprites() {
         const promises = [];
+        // 1. Načteme všechny základní sprity z PIXEL_ASSETS
         for (const [id, dataUrl] of Object.entries(PIXEL_ASSETS)) {
             const promise = new Promise((resolve, reject) => {
                 const img = new Image();
@@ -45,54 +39,56 @@ export const SpriteDrawer = {
             });
             promises.push(promise);
         }
-        return Promise.all(promises);
+
+        // 2. Počkáme, až se všechny základní sprity načtou
+        return Promise.all(promises).then(() => {
+            console.log("Base sprites loaded. Now pre-rendering color variants...");
+            // 3. Nyní, když máme základní 'settler' sprite, vytvoříme barevné varianty
+            const settlerTemplate = spriteCache.get('settler');
+            if (settlerTemplate) {
+                for (const jobId in CONFIG.JOBS) {
+                    const job = CONFIG.JOBS[jobId];
+                    const colorizedSprite = createColorizedSprite(settlerTemplate, job.color);
+                    // Uložíme je pod klíčem 'settler_builder', 'settler_lumberjack' atd.
+                    spriteCache.set(`settler_${jobId}`, colorizedSprite);
+                }
+            }
+            console.log("Color variants pre-rendered.");
+        });
     },
 
-    // Zjednodušená a opravená vykreslovací funkce
+    // Maximálně zjednodušená vykreslovací funkce
     draw(ctx, entity) {
-        let spriteId = entity.type;
+        let spriteId;
 
-        // Správné určení ID spritu pro různé typy entit
-        if (entity.type === 'resource_pile') {
+        // Určíme, jaké ID má sprite, který chceme vykreslit
+        if (entity.type === 'settler' && entity.job !== 'unemployed') {
+            spriteId = `settler_${entity.job}`;
+        } else if (entity.type === 'resource_pile') {
             spriteId = `${entity.resourceType}_pile`;
+        } else {
+            spriteId = entity.type;
         }
         
-        let sprite = spriteCache.get(spriteId);
+        const sprite = spriteCache.get(spriteId);
         
-        // Pokud sprite z nějakého důvodu neexistuje, nic nekreslíme.
         if (!sprite) {
-            return;
+            return; // Pokud sprite neexistuje, nic nekreslíme
         }
         
-        // Dobarvení osadníka podle profese
-        if (entity instanceof Humanoid && entity.type === 'settler' && entity.job !== 'unemployed') {
-            const jobColor = CONFIG.JOBS[entity.job]?.color;
-            const templateSprite = spriteCache.get('settler');
-            if (jobColor && templateSprite) {
-                sprite = colorizeSprite(templateSprite, jobColor);
-            }
-        }
-
-        // Uložíme aktuální stav kontextu (jako pozice, rotace atd.)
         ctx.save();
-        
-        // Přesuneme se na pozici entity
         ctx.translate(Math.floor(entity.x), Math.floor(entity.y));
 
         const drawWidth = entity.radius * 2.5;
         const drawHeight = (sprite.height / sprite.width) * drawWidth;
         const drawY = -drawHeight + (entity.radius * 0.4);
 
-        // Vypneme vyhlazování, aby byl pixel-art ostrý
         ctx.imageSmoothingEnabled = false;
-        
-        // Vykreslíme finální sprite
         ctx.drawImage(sprite, -drawWidth / 2, drawY, drawWidth, drawHeight);
 
-        // Vykreslení nákladu, pokud nějaký nese
+        // Vykreslení nákladu
         if (entity.task?.payload) {
-            const payloadSpriteId = `${entity.task.payload.type}_carry`;
-            const payloadSprite = spriteCache.get(payloadSpriteId);
+            const payloadSprite = spriteCache.get(`${entity.task.payload.type}_carry`);
             if (payloadSprite) {
                 const payloadWidth = drawWidth * 0.75;
                 const payloadHeight = (payloadSprite.height / payloadSprite.width) * payloadWidth;
@@ -100,7 +96,6 @@ export const SpriteDrawer = {
             }
         }
         
-        // Vrátíme kontext do původního stavu
         ctx.restore();
     }
 };
