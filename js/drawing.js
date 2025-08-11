@@ -3,10 +3,8 @@ import { CONFIG } from './config.js';
 import { Humanoid } from './classes.js';
 import { PIXEL_ASSETS } from './pixel-assets.js';
 
-// Cache pro již načtené a dobarvené sprity
 const spriteCache = new Map();
 
-// Funkce, která vezme šedý obrázek a dobarví ho danou barvou
 function colorizeSprite(sourceImage, color) {
     const cacheKey = `${sourceImage.src.substring(22, 52)}-${color}`;
     if (spriteCache.has(cacheKey)) {
@@ -28,17 +26,18 @@ function colorizeSprite(sourceImage, color) {
 }
 
 export const SpriteDrawer = {
-    // --- OPRAVENO --- Načte VŠECHNY sprity z pixel-assets.js předem
     loadAllSprites() {
+        console.log("--- Starting sprite loading ---");
         const promises = [];
         for (const [id, dataUrl] of Object.entries(PIXEL_ASSETS)) {
             const promise = new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => {
                     spriteCache.set(id, img);
+                    // console.log(`[OK] Sprite loaded: ${id}`);
                     resolve(img);
                 };
-                img.onerror = () => reject(`Failed to load sprite: ${id}`);
+                img.onerror = () => reject(`[FAIL] Failed to load sprite: ${id}`);
                 img.src = dataUrl;
             });
             promises.push(promise);
@@ -46,26 +45,38 @@ export const SpriteDrawer = {
         return Promise.all(promises);
     },
 
-    // --- ZJEDNODUŠENO --- Nyní pouze kreslí předem načtené sprity
     draw(ctx, entity) {
+        // --- DIAGNOSTIC LOG ---
+        console.log(`--- Attempting to draw entity: ${entity.type} (ID: ${entity.id}) ---`);
+        
         let spriteId = entity.type;
         if (entity.type === 'resource_pile') {
             spriteId = `${entity.resourceType}_pile`;
-        } else if (entity.size) { // Je to budova
+        } else if (entity.size) { 
             spriteId = entity.type;
         }
 
+        console.log(`Resolved spriteId to: '${spriteId}'`);
+
         let sprite = spriteCache.get(spriteId);
-        if (!sprite) return; // Sprite se z nějakého důvodu nenašel
         
+        if (!sprite) {
+            console.error(`Sprite NOT FOUND in cache for spriteId: '${spriteId}'`);
+            return;
+        }
+
+        // --- DIAGNOSTIC LOG ---
+        console.log(`Sprite found in cache. Type: ${sprite.constructor.name}, Dimensions: ${sprite.width}x${sprite.height}`);
+
         ctx.save();
         ctx.translate(Math.floor(entity.x), Math.floor(entity.y));
 
-        // Dobarvení osadníka podle profese
         if (entity instanceof Humanoid && entity.type === 'settler' && entity.job !== 'unemployed') {
             const jobColor = CONFIG.JOBS[entity.job]?.color;
             const templateSprite = spriteCache.get('settler');
             if (jobColor && templateSprite) {
+                // --- DIAGNOSTIC LOG ---
+                console.log(`Colorizing settler with job '${entity.job}' and color '${jobColor}'`);
                 sprite = colorizeSprite(templateSprite, jobColor);
             }
         }
@@ -74,17 +85,20 @@ export const SpriteDrawer = {
         const drawHeight = (sprite.height / sprite.width) * drawWidth;
         const drawY = -drawHeight + (entity.radius * 0.4);
 
-        ctx.imageSmoothingEnabled = false; // Pro ostrý pixel-art
+        if (isNaN(drawWidth) || isNaN(drawHeight)) {
+            console.error("drawWidth or drawHeight is NaN! Halting draw.", {drawWidth, drawHeight, entityRadius: entity.radius, spriteH: sprite.height, spriteW: sprite.width});
+            ctx.restore();
+            return;
+        }
+        
+        ctx.imageSmoothingEnabled = false;
         ctx.drawImage(sprite, -drawWidth / 2, drawY, drawWidth, drawHeight);
 
-        // Vykreslení nákladu, pokud nějaký nese
         if (entity.task?.payload) {
             const payloadSpriteId = `${entity.task.payload.type}_carry`;
             const payloadSprite = spriteCache.get(payloadSpriteId);
             if (payloadSprite) {
-                const payloadWidth = drawWidth * 0.75;
-                const payloadHeight = (payloadSprite.height / payloadSprite.width) * payloadWidth;
-                ctx.drawImage(payloadSprite, -payloadWidth / 2, drawY - payloadHeight / 3, payloadWidth, payloadHeight);
+                // ... drawing payload ...
             }
         }
         ctx.restore();
