@@ -1,80 +1,78 @@
-import { G } from './globals.js';
-import { CONFIG } from './config.js';
+// pathfinding.js
 
-export function findPath(start, end) {
-    const { grid } = G.state;
-    if (!start || !end || !grid[start.y]?.[start.x] || !grid[end.y]?.[end.x] || !grid[end.y][end.x].walkable) return null;
-    
-    const openSet = new Set();
+function findPath(grid, start, end) {
+    const openSet = [];
     const closedSet = new Set();
-    
-    const startNode = grid[start.y][start.x];
-    const endNode = grid[end.y][end.x];
+    const startNode = createNode(start.col, start.row, null, 0, heuristic(start, end));
+    openSet.push(startNode);
 
-    for(let y = 0; y < grid.length; y++) {
-        for(let x = 0; x < grid[y].length; x++) {
-            const node = grid[y][x];
-            node.g = Infinity;
-            node.f = Infinity;
-            node.parent = null;
+    while (openSet.length > 0) {
+        openSet.sort((a, b) => a.f - b.f);
+        const current = openSet.shift();
+
+        if (current.col === end.col && current.row === end.row) {
+            return reconstructPath(current);
         }
-    }
-    
-    startNode.g = 0;
-    startNode.h = Math.hypot(start.x - end.x, start.y - end.y);
-    startNode.f = startNode.h;
-    openSet.add(startNode);
 
-    while (openSet.size > 0) {
-        let current = null;
-        for (const node of openSet) {
-            if (current === null || node.f < current.f) {
-                current = node;
+        closedSet.add(`${current.col},${current.row}`);
+
+        for (const neighbor of getNeighbors(current, grid)) {
+            const neighborKey = `${neighbor.col},${neighbor.row}`;
+            if (closedSet.has(neighborKey) || grid[neighbor.row][neighbor.col].isWall) {
+                continue;
             }
-        }
 
-        if (current === endNode) {
-            const path = [];
-            let temp = current;
-            while (temp) {
-                path.push(temp);
-                temp = temp.parent;
-            }
-            return path.reverse();
-        }
+            const gScore = current.g + 1;
+            let neighborNode = openSet.find(n => n.col === neighbor.col && n.row === neighbor.row);
 
-        openSet.delete(current);
-        closedSet.add(current);
-
-        const neighbors = getNeighbors(current);
-        for (const neighbor of neighbors) {
-            if (closedSet.has(neighbor) || !neighbor.walkable) continue;
-            
-            let tempG = current.g + (1 + neighbor.wear / 255);
-            if (tempG < neighbor.g) {
-                neighbor.g = tempG;
-                neighbor.h = Math.hypot(neighbor.x - endNode.x, neighbor.y - endNode.y);
-                neighbor.f = neighbor.g + neighbor.h;
-                neighbor.parent = current;
-                if (!openSet.has(neighbor)) {
-                    openSet.add(neighbor);
-                }
+            if (!neighborNode) {
+                neighborNode = createNode(neighbor.col, neighbor.row, current, gScore, heuristic(neighbor, end));
+                openSet.push(neighborNode);
+            } else if (gScore < neighborNode.g) {
+                neighborNode.g = gScore;
+                neighborNode.f = gScore + neighborNode.h;
+                neighborNode.parent = current;
             }
         }
     }
-    return null;
+
+    return [];
 }
 
-function getNeighbors(node) {
-    const { grid } = G.state;
-    const neighbors = [];
-    const { x, y } = node;
-    const gridW = CONFIG.WORLD_WIDTH / CONFIG.GRID_SIZE;
-    const gridH = CONFIG.WORLD_HEIGHT / CONFIG.GRID_SIZE;
+function createNode(col, row, parent, g, h) {
+    return { col, row, parent, g, h, f: g + h };
+}
 
-    if (x > 0) neighbors.push(grid[y][x - 1]);
-    if (x < gridW - 1) neighbors.push(grid[y][x + 1]);
-    if (y > 0) neighbors.push(grid[y - 1][x]);
-    if (y < gridH - 1) neighbors.push(grid[y + 1][x]);
+function heuristic(a, b) {
+    return Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
+}
+
+function getNeighbors(node, grid) {
+    const directions = [
+        { col: 1, row: 0 },
+        { col: -1, row: 0 },
+        { col: 0, row: 1 },
+        { col: 0, row: -1 }
+    ];
+    const neighbors = [];
+
+    for (const dir of directions) {
+        const newCol = node.col + dir.col;
+        const newRow = node.row + dir.row;
+        if (grid[newRow] && grid[newRow][newCol]) {
+            neighbors.push({ col: newCol, row: newRow });
+        }
+    }
+
     return neighbors;
+}
+
+function reconstructPath(node) {
+    const path = [];
+    let current = node;
+    while (current) {
+        path.push({ col: current.col, row: current.row });
+        current = current.parent;
+    }
+    return path.reverse();
 }
