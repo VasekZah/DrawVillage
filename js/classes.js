@@ -1,15 +1,31 @@
+// js/classes.js
+
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 import { OutlineDrawer } from './drawing.js';
 import { findClosestEntity, removeEntity, findWalkableNeighbor, worldToGrid, addEntity, setNotification, isTargeted } from './helpers.js';
 import { findPath } from './pathfinding.js';
 import { TaskActions } from './taskLogic.js';
+import { getAssetImg } from './uiHelpers.js'; // <-- PŘIDANÝ IMPORT
 
 // --- CORE CLASSES ---
 class Entity {
     constructor(type, x, y) { this.id = G.state.nextId++; this.type = type; this.x = x; this.y = y; this.radius = 16; }
     draw() {
-        OutlineDrawer.draw(G.ctx, this);
+        // Vykreslení pomocí uživatelského assetu, pokud existuje
+        const assetKey = this.type.startsWith('resource_') ? this.resourceType : this.type;
+        const asset = G.state.loadedUserAssets[assetKey];
+        if (asset) {
+            OutlineDrawer.draw(G.ctx, this);
+        } else { // Jinak fallback na placeholder
+            G.ctx.save();
+            G.ctx.translate(this.x, this.y);
+            G.ctx.strokeStyle = '#e53e3e';
+            G.ctx.lineWidth = 2;
+            const r = this.radius;
+            G.ctx.strokeRect(-r/2, -r/2, r, r);
+            G.ctx.restore();
+        }
     }
     update(deltaTime) {}
     getTooltip() { return this.type; }
@@ -135,7 +151,9 @@ class Humanoid extends Entity {
     die() {
         setNotification(`${this.type === 'settler' ? 'Settler' : 'Child'} died of starvation!`);
         if (this.task) {
-            if (this.task.payload) G.state.resources[this.task.payload.type] += this.task.payload.amount;
+            if (this.task.payload && G.state.resources[this.task.payload.type]) {
+               G.state.resources[this.task.payload.type] += this.task.payload.amount;
+            }
             this.task.status = 'failed';
         }
         this.finishTask();
@@ -348,9 +366,14 @@ export class Task {
         return required === job;
     }
     canBeReached(settler) {
-        if (!this.target) return true;
+        if (!this.target) return true; // Wander task etc.
         const startNode = worldToGrid(settler.x, settler.y);
-        const endNode = findWalkableNeighbor(worldToGrid(this.target.x, this.target.y));
+        let endNode;
+         if (this.target instanceof Building) {
+            endNode = this.target.accessPoints[0];
+         } else {
+            endNode = findWalkableNeighbor(worldToGrid(this.target.x, this.target.y));
+         }
         return startNode && endNode;
     }
     onArrival(settler) {
