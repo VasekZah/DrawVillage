@@ -30,16 +30,17 @@ export const OutlineDrawer = {
         ctx.save();
         ctx.translate(Math.floor(entity.x), Math.floor(entity.y));
 
-        // FIX 1: Refined logic to find the correct image for resource piles.
         const assetKey = entity.type === 'resource_pile' ? entity.resourceType : entity.type;
-        
-        // FIX 2: Correct path to the loaded user assets in G.state.
         const img = G.state.loadedUserAssets[assetKey];
 
         if (img) {
             const drawWidth = entity.radius * 2.5;
+            // The height is calculated based on the new, cropped aspect ratio
             const drawHeight = (img.height / img.width) * drawWidth;
-            ctx.drawImage(img, -drawWidth / 2, -drawHeight + entity.radius * 0.5, drawWidth, drawHeight);
+            // The drawing is now tight in the image, so we place the bottom of the image
+            // near the entity's y-origin to make it look like it's standing on the ground.
+            // A small positive offset to radius makes it sit nicely on the 'ground line'.
+            ctx.drawImage(img, -drawWidth / 2, -drawHeight + (entity.radius * 0.2), drawWidth, drawHeight);
         } else {
             // Fallback display if an image is missing
             ctx.strokeStyle = this.colors.placeholder;
