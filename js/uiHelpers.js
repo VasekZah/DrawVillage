@@ -14,5 +14,6 @@ export function getUiIcon(name, classes = 'icon') {
         return `<img src="${dataUrl}" class="${classes}" alt="${name} icon" />`;
     }
     
+    // Záložní zobrazení, pokud sprite chybí
     return `<span class="${classes}" style="background-color: #F87171; display: inline-block;"></span>`;
 }
