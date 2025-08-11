@@ -1,14 +1,10 @@
-// js/classes.js
-
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 import { PixelDrawer } from './drawing.js';
 import { findPath } from './pathfinding.js';
 import { findClosest, worldToGrid, findWalkableNeighbor, updateGridForObject, setNotification } from './helpers.js';
-import { getUiIcon } from './uiHelpers.js'; // Přidán správný import
+import { getUiIcon } from './uiHelpers.js';
 
-// --- ZDE ZAČÍNÁ KOMPLETNÍ KÓD PRO classes.js ---
-// (Následuje kompletní, správný kód pro celý soubor)
 class Entity {
     draw() { PixelDrawer.draw(G.ctx, this); }
     update() {}
@@ -48,71 +44,7 @@ export class Settler extends Entity {
             G.ctx.restore();
         }
     }
-    
-    // Zbytek metod pro Settler (update, resetTask, die, atd.)
-}
 
-export class WorldObject extends Entity {
-    constructor(type, x, y, amountOverride = null) {
-        super();
-        this.type = type; this.x = x; this.y = y; this.growth = 0;
-        this.resource = { 
-            tree: { type: 'wood', amount: 5 }, stone: { type: 'stone', amount: 5 }, 
-            bush: { type: 'food', amount: 2 }, wood_pile: { type: 'wood', amount: 5 },
-            stone_pile: { type: 'stone', amount: 5 }, food_pile: { type: 'food', amount: 2 },
-            carcass: { type: 'food', amount: 8 }
-        }[type];
-        if (this.resource && amountOverride !== null) {
-            this.resource.amount = amountOverride;
-        }
-        this.radius = {tree: 8, stone: 6, bush: 4, sapling: 2, wood_pile: 4, stone_pile: 4, food_pile: 4, carcass: 4, stump: 4}[type] || 4;
-        this.targetedBy = null;
-    }
-    
-    // ... metody pro WorldObject
-}
-
-export class Building extends Entity {
-    constructor(type, x, y) {
-        super();
-        this.type = type; this.x = x; this.y = y;
-        const blueprint = CONFIG.BUILDINGS[type];
-        this.size = blueprint.size;
-        this.isUnderConstruction = type !== 'stockpile';
-        this.isUpgrading = false;
-        this.cost = blueprint.cost || {};
-        this.delivered = Object.keys(this.cost).reduce((acc, key) => ({...acc, [key]: 0 }), {});
-        this.enRoute = Object.keys(this.cost).reduce((acc, key) => ({...acc, [key]: 0 }), {});
-        this.targetedBy = null;
-        this.targetedByHaulers = [];
-        this.upgradable = blueprint.upgradable;
-
-        if (type === 'farm') { this.farmState = 'fallow'; this.growth = 0; }
-        if (type === 'hut' || type === 'stone_house') {
-            this.residents = [];
-            this.reproductionCooldown = 0;
-        }
-    }
-
-    getTooltip() {
-        const name = CONFIG.BUILDINGS[this.type].name;
-        if (this.isUnderConstruction || this.isUpgrading) {
-            const cost = this.isUpgrading ? CONFIG.UPGRADES[this.type]?.cost : this.cost;
-            const status = this.isUpgrading ? 'Vylepšování' : 'Stavba';
-            const needed = Object.entries(cost).map(([res, val]) => `${getUiIcon(res)} ${Math.floor(this.delivered[res])}/${val}`).join(', ');
-            return `${name} (${status}) - ${needed || 'Připraveno'} [Pravý klik pro zrušení]`;
-        }
-        // ... zbytek getTooltip
-        return name;
-    }
-
-    // ... zbytek metod pro Building
-}
-
-export class Animal extends Entity {
-    // ... třída Animal
-}
-
-export class Projectile extends Entity {
-    // ... třída Projectile
-}
+    update(deltaTime) {
+        const hungerRate = this.isChild ? CONFIG.CHILD_HUNGER_RATE : CONFIG.HUNGER_RATE;
+        this.hunger += (deltaTime / CONFIG.DAY_LENGTH_MS)
