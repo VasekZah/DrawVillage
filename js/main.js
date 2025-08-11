@@ -153,7 +153,7 @@ function update(deltaTime) {
         }
     }
     updateCamera(); 
-    assignJobs();
+    assignJobs(); // Zde je volání funkce
     state.settlers.forEach(s => s.update(deltaTime));
     state.worldObjects.forEach(o => o.update());
     state.buildings.forEach(b => b.update?.(deltaTime));
@@ -296,14 +296,14 @@ function draw() {
     }
     
     ctx.restore();
+    const tooltip = G.ui.tooltip;
     if (state.hoveredObject && state.hoveredObject.getTooltip) {
-        const tooltip = G.ui.tooltip;
         tooltip.innerHTML = state.hoveredObject.getTooltip();
         tooltip.style.display = 'block';
         tooltip.style.left = `${state.mousePos.x + 15}px`;
         tooltip.style.top = `${state.mousePos.y + 15}px`;
     } else {
-        G.ui.tooltip.style.display = 'none';
+        tooltip.style.display = 'none';
     }
     updateUIDisplay();
 }
