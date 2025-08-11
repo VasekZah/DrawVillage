@@ -269,12 +269,27 @@ export class Building extends Entity {
 
 export class WorldObject extends Entity {
     constructor(type, x, y, amount = 100) {
-        super(type, x, y); this.amount = amount;
-        if (type === 'berryBush') this.radius = 12;
-        if (type === 'tree' || type === 'stone') this.radius = 14;
-        if (type === 'sapling') { this.radius = 8; this.age = 0; }
-        if (type.startsWith('resource_')) { this.resourceType = type.split('_')[1]; this.type = 'resource_pile'; }
+        super(type, x, y); 
+        this.amount = amount;
+
+        // --- ADJUSTED RADII FOR MORE NATURAL SCALING ---
+        if (type === 'tree') {
+            this.radius = 20; // Trees are large
+        } else if (type === 'stone') {
+            this.radius = 18; // Stone deposits are also large
+        } else if (type === 'berryBush') {
+            this.radius = 14; // Bushes are medium-sized
+        } else if (type === 'sapling') {
+            this.radius = 7;  // Saplings are small
+            this.age = 0;
+        } else if (type.startsWith('resource_')) {
+            this.resourceType = type.split('_')[1];
+            this.type = 'resource_pile';
+            this.radius = 8;  // Resource piles on the ground are small
+        }
+        // Humanoids have a radius of 16, so these values scale relative to them.
     }
+    
     update(deltaTime) {
         if (this.type === 'sapling') {
             this.age += deltaTime;
@@ -283,10 +298,12 @@ export class WorldObject extends Entity {
             }
         }
     }
+    
     growIntoTree() {
         addEntity(new WorldObject('tree', this.x, this.y, 5));
         removeEntity(this);
     }
+    
     getTooltip() {
         if (this.type === 'resource_pile') return `<b>Pile of ${CONFIG.RESOURCES_INFO[this.resourceType].name}</b><br>Amount: ${this.amount}`;
         if (this.type === 'sapling') return `<b>Sapling</b><br>Growing...`;
