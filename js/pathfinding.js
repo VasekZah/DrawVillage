@@ -1,37 +1,80 @@
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
-import { getNeighbors } from './helpers.js';
 
-// --- PATHFINDING A* ---
-export function findPath(startNode, endNode) {
-    let openSet = [startNode]; const closedSet = new Set(); const cameFrom = new Map();
-    const gScore = new Map(); gScore.set(startNode, 0);
-    const fScore = new Map(); fScore.set(startNode, Math.hypot(startNode.x - endNode.x, startNode.y - endNode.y));
+export function findPath(start, end) {
+    const { state } = G;
+    if (!start || !end || !state.grid[start.y]?.[start.x] || !state.grid[end.y]?.[end.x] || !state.grid[end.y][end.x].walkable) return null;
+    
+    const openSet = new Set();
+    const closedSet = new Set();
+    
+    const startNode = state.grid[start.y][start.x];
+    const endNode = state.grid[end.y][end.x];
 
-    while (openSet.length > 0) {
-        let current = openSet.sort((a, b) => (fScore.get(a) || Infinity) - (fScore.get(b) || Infinity)).shift();
+    for(let y = 0; y < state.grid.length; y++) {
+        for(let x = 0; x < state.grid[y].length; x++) {
+            const node = state.grid[y][x];
+            node.g = Infinity;
+            node.f = Infinity;
+            node.parent = null;
+        }
+    }
+    
+    startNode.g = 0;
+    startNode.h = Math.hypot(start.x - end.x, start.y - end.y);
+    startNode.f = startNode.h;
+    openSet.add(startNode);
 
-        if (current.x === endNode.x && current.y === endNode.y) {
-            const path = []; while (current) { path.push(current); current = cameFrom.get(current); }
+    while (openSet.size > 0) {
+        let current = null;
+        for (const node of openSet) {
+            if (current === null || node.f < current.f) {
+                current = node;
+            }
+        }
+
+        if (current === endNode) {
+            const path = [];
+            let temp = current;
+            while (temp) {
+                path.push(temp);
+                temp = temp.parent;
+            }
             return path.reverse();
         }
 
+        openSet.delete(current);
         closedSet.add(current);
 
-        for (let neighbor of getNeighbors(current)) {
+        const neighbors = getNeighbors(current);
+        for (const neighbor of neighbors) {
             if (closedSet.has(neighbor) || !neighbor.walkable) continue;
-
-            const moveCost = Math.hypot(current.x - neighbor.x, current.y - neighbor.y);
-            const pathCost = moveCost / (1 + CONFIG.PATH_SPEED_BONUS * (neighbor.wear || 0));
-            const tentativeGScore = (gScore.get(current) || 0) + pathCost;
-
-            if (tentativeGScore < (gScore.get(neighbor) || Infinity)) {
-                cameFrom.set(neighbor, current);
-                gScore.set(neighbor, tentativeGScore);
-                fScore.set(neighbor, tentativeGScore + Math.hypot(neighbor.x - endNode.x, neighbor.y - endNode.y));
-                if (!openSet.some(node => node === neighbor)) openSet.push(neighbor);
+            
+            let tempG = current.g + (1 + neighbor.wear / 255);
+            if (tempG < neighbor.g) {
+                neighbor.g = tempG;
+                neighbor.h = Math.hypot(neighbor.x - endNode.x, neighbor.y - endNode.y);
+                neighbor.f = neighbor.g + neighbor.h;
+                neighbor.parent = current;
+                if (!openSet.has(neighbor)) {
+                    openSet.add(neighbor);
+                }
             }
         }
     }
     return null;
+}
+
+function getNeighbors(node) {
+    const { state } = G;
+    const neighbors = [];
+    const { x, y } = node;
+    const gridW = CONFIG.WORLD_WIDTH / CONFIG.GRID_SIZE;
+    const gridH = CONFIG.WORLD_HEIGHT / CONFIG.GRID_SIZE;
+
+    if (x > 0) neighbors.push(state.grid[y][x - 1]);
+    if (x < gridW - 1) neighbors.push(state.grid[y][x + 1]);
+    if (y > 0) neighbors.push(state.grid[y - 1][x]);
+    if (y < gridH - 1) neighbors.push(state.grid[y + 1][x]);
+    return neighbors;
 }
