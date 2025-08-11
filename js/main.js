@@ -45,6 +45,29 @@ document.addEventListener('DOMContentLoaded', () => {
     initDrawingModal(init);
 });
 
+// --- NEW --- Helper function for non-overlapping spawning
+function spawnObjects(count, type, minDistance) {
+    let placed = 0;
+    let attempts = 0;
+    const maxAttempts = count * 10; // Safety break
+
+    while (placed < count && attempts < maxAttempts) {
+        const x = Math.random() * CONFIG.WORLD_SIZE;
+        const y = Math.random() * CONFIG.WORLD_SIZE;
+
+        // Check for collision with any other entity
+        const closest = findClosestEntity({ x, y }, () => true, minDistance);
+
+        if (!closest) {
+            addEntity(new WorldObject(type, x, y));
+            placed++;
+        }
+        attempts++;
+    }
+    if (attempts >= maxAttempts) {
+        console.warn(`Could not place all ${type} objects. Only placed ${placed}/${count}.`);
+    }
+}
 
 function init() {
     resizeCanvas();
@@ -62,9 +85,10 @@ function init() {
     stockpile.buildProgress = 100;
     addBuilding(stockpile);
 
-    for (let i = 0; i < 150; i++) addEntity(new WorldObject('tree', Math.random() * CONFIG.WORLD_SIZE, Math.random() * CONFIG.WORLD_SIZE, 5));
-    for (let i = 0; i < 80; i++) addEntity(new WorldObject('stone', Math.random() * CONFIG.WORLD_SIZE, Math.random() * CONFIG.WORLD_SIZE, 10));
-    for (let i = 0; i < 40; i++) addEntity(new WorldObject('berryBush', Math.random() * CONFIG.WORLD_SIZE, Math.random() * CONFIG.WORLD_SIZE, 9));
+    // --- REPLACED --- Use the new spawn function to prevent overlaps
+    spawnObjects(150, 'tree', 30);
+    spawnObjects(80, 'stone', 35);
+    spawnObjects(40, 'berryBush', 25);
 
     OutlineDrawer.createGrassPattern(G.ctx);
     addEventListeners();
