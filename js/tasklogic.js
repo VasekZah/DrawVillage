@@ -1,13 +1,14 @@
-import { state, CONFIG } from './config.js';
+import { G } from './globals.js';
+import { CONFIG } from './config.js';
 import { createResourcePile, removeEntity, setNotification, findClosestEntity, updateGridForObject, calculateAccessPoints, addEntity, worldToGrid } from './helpers.js';
 import { WorldObject } from './classes.js';
 
 // --- TASK LOGIC ---
 export const TaskActions = {
     eat: (settler, task) => {
-        if (state.resources.food > 0) {
-            const amountToEat = Math.min(state.resources.food, 10);
-            state.resources.food -= amountToEat;
+        if (G.state.resources.food > 0) {
+            const amountToEat = Math.min(G.state.resources.food, 10);
+            G.state.resources.food -= amountToEat;
             settler.hunger = Math.max(0, settler.hunger - (amountToEat * 5));
         }
         task.status = 'complete';
@@ -25,15 +26,15 @@ export const TaskActions = {
 
         if (task.stage === 'initial') {
             const stockpile = findClosestEntity(settler, e => e.type === 'stockpile' && e.status === 'operational');
-            if (stockpile && state.resources[resource] > 0) {
+            if (stockpile && G.state.resources[resource] > 0) {
                 task.stage = 'going_to_stockpile'; task.originalTarget = site; task.target = stockpile;
                 settler.recalculatePath();
             } else { task.status = 'failed'; settler.finishTask(true); }
         } else if (task.stage === 'going_to_stockpile') {
             const needed = site.cost[resource] - site.delivered[resource];
-            const amountToTake = Math.min(CONFIG.CARRY_CAPACITY, state.resources[resource], needed);
+            const amountToTake = Math.min(CONFIG.CARRY_CAPACITY, G.state.resources[resource], needed);
             if (amountToTake > 0) {
-                state.resources[resource] -= amountToTake;
+                G.state.resources[resource] -= amountToTake;
                 task.payload = { type: resource, amount: amountToTake };
                 task.stage = 'going_to_site'; task.target = task.originalTarget;
                 settler.recalculatePath();
@@ -68,7 +69,7 @@ export const TaskActions = {
             settler.recalculatePath();
         } else if (task.stage === 'going_to_stockpile') {
             if (task.payload) {
-                state.resources[task.payload.type] += task.payload.amount;
+                G.state.resources[task.payload.type] += task.payload.amount;
                 task.payload = null;
             }
             task.status = 'complete';
@@ -108,7 +109,7 @@ export const TaskActions = {
     },
     gather_wood: (settler, task) => {
         const tree = task.target;
-        if (!tree || tree.amount <= 0 || !state.entities.some(e => e.id === tree.id)) {
+        if (!tree || tree.amount <= 0 || !G.state.entities.some(e => e.id === tree.id)) {
             task.status = 'failed';
             settler.finishTask(true);
             return;
@@ -126,7 +127,7 @@ export const TaskActions = {
     },
     gather_stone: (settler, task) => {
         const stone = task.target;
-        if (!stone || stone.amount <= 0 || !state.entities.some(e => e.id === stone.id)) {
+        if (!stone || stone.amount <= 0 || !G.state.entities.some(e => e.id === stone.id)) {
             task.status = 'failed';
             settler.finishTask(true);
             return;
@@ -146,7 +147,7 @@ export const TaskActions = {
     },
     gather_berries: (settler, task) => {
         const bush = task.target;
-         if (!bush || bush.amount <= 0 || !state.entities.some(e => e.id === bush.id)) {
+         if (!bush || bush.amount <= 0 || !G.state.entities.some(e => e.id === bush.id)) {
             task.status = 'failed';
             settler.finishTask(true);
             return;
@@ -157,7 +158,7 @@ export const TaskActions = {
             if (task.workTimer >= 2000) {
                 const gatheredAmount = Math.min(3, bush.amount);
                 bush.amount -= gatheredAmount;
-                state.resources.food += gatheredAmount;
+                G.state.resources.food += gatheredAmount;
                 if (bush.amount <= 0) removeEntity(bush);
                 task.status = 'complete';
                 settler.finishTask(false, true);
@@ -188,7 +189,7 @@ export const TaskActions = {
             if (!settler.isMoving) {
                 task.workTimer += 16;
                 if (task.workTimer >= 8000) {
-                    state.resources.stone++;
+                    G.state.resources.stone++;
                     task.workTimer = 0;
                 }
             }
@@ -202,7 +203,7 @@ export const TaskActions = {
     wander: (settler, task) => {
         if (task.stage === 'initial') {
             let center = {x: CONFIG.WORLD_SIZE / 2, y: CONFIG.WORLD_SIZE / 2};
-            const home = state.buildings.find(b => b.id === settler.homeId);
+            const home = G.state.buildings.find(b => b.id === settler.homeId);
             if (home) {
                 center = home;
             } else {
