@@ -12,19 +12,23 @@
 </head>
 <body class="flex items-center justify-center h-screen p-4">
 
-    <!-- Drawing Modal -->
     <div id="drawing-modal">
-        <div class="bg-white p-8 rounded-lg shadow-2xl flex gap-8 w-full max-w-4xl">
+        <div class="bg-white p-8 rounded-lg shadow-2xl flex gap-8 w-full max-w-6xl">
             <div class="w-1/4">
                 <h2 class="text-2xl font-bold mb-4">Nakresli si hru</h2>
-                <ul id="asset-list" class="space-y-1 h-96 overflow-y-auto pr-2 scrollable-panel"></ul>
+                <ul id="asset-list" class="space-y-1 h-[512px] overflow-y-auto pr-2 scrollable-panel"></ul>
             </div>
             <div class="flex-grow flex flex-col items-center">
-                <h3 id="current-asset-name" class="text-xl font-semibold mb-2"></h3>
-                <canvas id="drawing-canvas" width="256" height="256"></canvas>
+                <h3 id="current-asset-name" class="text-xl font-semibold mb-2 h-8"></h3>
+                <canvas id="drawing-canvas" width="512" height="512"></canvas>
                 <div class="mt-4 flex gap-4">
                     <button id="clear-drawing-btn" class="btn px-4 py-2 rounded-lg">Vyčistit</button>
                     <button id="save-drawing-btn" class="btn bg-blue-500 text-white hover:bg-blue-600 px-4 py-2 rounded-lg">Uložit a další</button>
+                </div>
+                <div class="mt-4 flex gap-4 border-t pt-4">
+                    <button id="export-btn" class="btn bg-gray-600 text-white hover:bg-gray-700 px-4 py-2 rounded-lg">Exportovat kresby</button>
+                    <button id="import-btn" class="btn bg-gray-600 text-white hover:bg-gray-700 px-4 py-2 rounded-lg">Importovat kresby</button>
+                    <input type="file" id="import-file-input" class="hidden" accept="application/json">
                 </div>
             </div>
             <div class="w-1/4 flex flex-col justify-end">
@@ -33,7 +37,6 @@
         </div>
     </div>
 
-    <!-- Game Container -->
     <div id="game-container" class="w-full max-w-screen-2xl mx-auto flex flex-col lg:flex-row gap-4 h-[96vh] game-container">
         <div class="flex-grow h-full relative">
             <canvas id="gameCanvas" class="w-full h-full"></canvas>
