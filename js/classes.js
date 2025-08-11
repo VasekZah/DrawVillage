@@ -106,16 +106,18 @@ export class Settler extends Entity {
         G.state.settlers = G.state.settlers.filter(s => s !== this);
     }
 
+    // ==================================================================
+    // OPRAVA č.1 - ZDE JE OPRAVA PROBLÉMU S POHYBEM
+    // ==================================================================
     moveAlongPath(deltaTime) {
         if (!this.path || this.path.length === 0) {
-            const distToTarget = this.target ? Math.hypot(this.x - this.target.x, this.y - this.target.y) : Infinity;
-            const interactionRadius = (this.target?.size ? Math.max(this.target.size.w, this.target.size.h) / 2 : this.target?.radius || 0) + CONFIG.INTERACTION_DISTANCE;
-            if (distToTarget <= interactionRadius) {
-                this.task = this.onPathComplete; 
-                this.workProgress = 0;
-            } else { this.resetTask(); }
-            return; 
+            // Path is finished. Switch to the action. We assume pathfinding got us close enough.
+            // Původní `else { resetTask() }` bylo ZDROJEM CHYBY a je odstraněno.
+            this.task = this.onPathComplete;
+            this.workProgress = 0;
+            return;
         }
+
         const targetNode = this.path[0];
         const targetX = targetNode.x * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
         const targetY = targetNode.y * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
@@ -306,17 +308,17 @@ export class Settler extends Entity {
         this.resetTask();
     }
 
+    // ==================================================================
+    // OPRAVA č.2 - ZDE JE OPRAVA PROBLÉMU S VYKONÁVÁNÍM PRÁCE
+    // ==================================================================
     work() {
         const duration = this.task === 'pickingUpResource' ? CONFIG.PICKUP_DURATION : CONFIG.WORK_DURATION;
         if (!this.target) { this.resetTask(); return; }
         
-        const distToTarget = Math.hypot(this.x - this.target.x, this.y - this.target.y);
-        const interactionRadius = (this.target.size ? Math.max(this.target.size.w, this.target.size.h) / 2 : this.target.radius || 0) + CONFIG.INTERACTION_DISTANCE;
-        if (distToTarget > interactionRadius) {
-            if (this.task !== 'moving') this.resetTask();
-            return;
-        }
+        // Původní kontrola vzdálenosti byla ZDROJEM CHYBY a je odstraněna.
+        // Nyní spoléháme na to, že nás pathfinding dostal dostatečně blízko.
 
+        // Předběžné kontroly, zda je cíl stále platný, jsou ale důležité.
         if (this.task === 'pickingUpResource' && !G.state.worldObjects.includes(this.target)) { this.resetTask(); return; }
         if ((this.task === 'workingAtResource') && (!this.target.resource || this.target.type === 'stump')) { this.resetTask(); return; }
         if ((this.task === 'workingOnConstruction' || this.task === 'upgradingBuilding') && !this.target.isUnderConstruction && !this.target.isUpgrading) { this.resetTask(); return; }
@@ -444,7 +446,8 @@ export class Settler extends Entity {
 }
 
 
-export class Building extends Entity {
+// Ostatní třídy zůstávají beze změny
+export class Building extends Entity { /* ... kód beze změny ... */ 
     constructor(type, x, y) {
         super();
         this.type = type; this.x = x; this.y = y;
@@ -524,7 +527,7 @@ export class Building extends Entity {
         }
     }
 }
-export class WorldObject extends Entity {
+export class WorldObject extends Entity { /* ... kód beze změny ... */
     constructor(type, x, y, amountOverride = null) {
         super();
         this.type = type; this.x = x; this.y = y; this.growth = 0;
@@ -555,7 +558,7 @@ export class WorldObject extends Entity {
         }
     }
 }
-export class Animal extends Entity {
+export class Animal extends Entity { /* ... kód beze změny ... */
     constructor(type, x, y) {
         super();
         this.type = type; this.x = x; this.y = y;
@@ -600,7 +603,7 @@ export class Animal extends Entity {
         G.state.animals = G.state.animals.filter(a => a !== this);
     }
 }
-export class Projectile extends Entity {
+export class Projectile extends Entity { /* ... kód beze změny ... */
     constructor(x, y, target) {
         super();
         this.type = 'arrow';
