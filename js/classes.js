@@ -4,6 +4,7 @@ import { PixelDrawer } from './drawing.js';
 import { findPath } from './pathfinding.js';
 import { findClosest, worldToGrid, findWalkableNeighbor, updateGridForObject, setNotification, assignHomes } from './helpers.js';
 
+// Základní třída pro všechny herní objekty
 class Entity {
     draw() { PixelDrawer.draw(G.ctx, this); }
     update() {}
@@ -35,12 +36,16 @@ export class Settler extends Entity {
     draw() {
         PixelDrawer.draw(G.ctx, this);
         if (this.payload) {
-            G.ctx.save();
-            G.ctx.translate(Math.floor(this.x), Math.floor(this.y));
-            const color = this.payload.type === 'wood' ? '#8d6e63' : (this.payload.type === 'stone' ? '#90a4ae' : '#c2185b');
-            G.ctx.fillStyle = color;
-            G.ctx.fillRect(2, -8, 4, 4);
-            G.ctx.restore();
+            // Vylepšené kreslení nošeného předmětu
+            const carriedItemType = this.payload.type + '_pile';
+            if (PixelDrawer[carriedItemType]) {
+                PixelDrawer.draw(G.ctx, { 
+                    type: carriedItemType, 
+                    x: this.x + 2, 
+                    y: this.y - 8,
+                    radius: 2 // Menší poloměr pro nošený předmět
+                });
+            }
         }
     }
 
@@ -254,17 +259,17 @@ export class Settler extends Entity {
             );
 
             if (neededResource) {
-                const stockpileGridPos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), worldToGrid(this.x, this.y));
-                const siteGridPos = findWalkableNeighbor(worldToGrid(site.x, site.y), worldToGrid(stockpile.x, stockpile.y));
-                
-                if (!stockpileGridPos || !siteGridPos || !findPath(stockpileGridPos, siteGridPos)) {
-                    continue;
-                }
+                // OPRAVA: Ověříme, že existuje cesta od osadníka ke skladišti a od skladiště ke stavbě
+                const settlerPos = worldToGrid(this.x, this.y);
+                const stockpilePos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), settlerPos);
+                const sitePos = findWalkableNeighbor(worldToGrid(site.x, site.y), stockpilePos);
 
-                if (this.findAndSetPath(stockpile, 'pickupForHauling')) {
-                    this.secondaryTarget = site;
-                    site.targetedByHaulers.push(this);
-                    return true;
+                if (stockpilePos && sitePos && findPath(settlerPos, stockpilePos) && findPath(stockpilePos, sitePos)) {
+                    if (this.findAndSetPath(stockpile, 'pickupForHauling')) {
+                        this.secondaryTarget = site;
+                        site.targetedByHaulers.push(this);
+                        return true;
+                    }
                 }
             }
         }
@@ -291,11 +296,8 @@ export class Settler extends Entity {
                 
                 for (const resource of resources) {
                     const resourcePos = findWalkableNeighbor(worldToGrid(resource.x, resource.y), worldToGrid(this.x, this.y));
-                    const stockpilePos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), worldToGrid(resource.x, resource.y));
-                    if(resourcePos && stockpilePos && findPath(resourcePos, stockpilePos)) {
-                        if (this.findAndSetPath(resource, 'workingAtResource')) {
-                            return true;
-                        }
+                    if(resourcePos && this.findAndSetPath(resource, 'workingAtResource')) {
+                        return true;
                     }
                 }
                 break;
@@ -333,10 +335,12 @@ export class Settler extends Entity {
         ).sort((a, b) => Math.hypot(this.x - a.x, this.y - a.y) - Math.hypot(this.x - b.x, this.y - b.y));
 
         for (const pile of resourcePiles) {
-            const pileGridPos = findWalkableNeighbor(worldToGrid(pile.x, pile.y), worldToGrid(this.x, this.y));
-            const stockpileGridPos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), worldToGrid(pile.x, pile.y));
+            // OPRAVA: Ověříme, že existuje cesta od osadníka k hromádce a od hromádky ke skladišti
+            const settlerPos = worldToGrid(this.x, this.y);
+            const pilePos = findWalkableNeighbor(worldToGrid(pile.x, pile.y), settlerPos);
+            const stockpilePos = findWalkableNeighbor(worldToGrid(stockpile.x, stockpile.y), pilePos);
 
-            if (pileGridPos && stockpileGridPos && findPath(pileGridPos, stockpileGridPos)) {
+            if (pilePos && stockpilePos && findPath(settlerPos, pilePos) && findPath(pilePos, stockpilePos)) {
                 if (this.findAndSetPath(pile, 'pickingUpResource')) {
                     return true;
                 }
@@ -367,7 +371,7 @@ export class Settler extends Entity {
     finishWork() {
         if (!this.target) { this.resetTask(); return; }
         const isWorldObjectTask = this.task === 'workingAtResource' || this.task === 'pickingUpResource';
-        if (isWorldObjectTask && !G.state.worldObjects.includes(this.target)) { // Removed !this.target.resource check as it could be null for stump
+        if (isWorldObjectTask && !G.state.worldObjects.includes(this.target) ) {
             this.resetTask();
             return;
         }
@@ -649,10 +653,10 @@ export class Projectile extends Entity {
         const dist = Math.hypot(dx, dy);
         if (dist < this.speed || this.target.isDead) {
             if (!this.target.isDead) this.target.die();
-            return false; // remove projectile
+            return false;
         }
         this.x += Math.cos(this.angle) * this.speed;
         this.y += Math.sin(this.angle) * this.speed;
-        return true; // continue
+        return true;
     }
 }
