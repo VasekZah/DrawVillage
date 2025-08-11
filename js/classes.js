@@ -3,7 +3,7 @@ import { CONFIG } from './config.js';
 import { OutlineDrawer } from './drawing.js';
 import { findClosestEntity, removeEntity, findWalkableNeighbor, worldToGrid, addEntity, setNotification, isTargeted } from './helpers.js';
 import { findPath } from './pathfinding.js';
-import { TaskActions } from './tasklogic.js';
+import { TaskActions } from './taskLogic.js';
 import { getAssetImg } from './uiHelpers.js';
 
 class Entity {
