@@ -2,18 +2,18 @@ import { G } from './globals.js';
 import { CONFIG } from './config.js';
 
 export function findPath(start, end) {
-    const { state } = G;
-    if (!start || !end || !state.grid[start.y]?.[start.x] || !state.grid[end.y]?.[end.x] || !state.grid[end.y][end.x].walkable) return null;
+    const { grid } = G.state;
+    if (!start || !end || !grid[start.y]?.[start.x] || !grid[end.y]?.[end.x] || !grid[end.y][end.x].walkable) return null;
     
     const openSet = new Set();
     const closedSet = new Set();
     
-    const startNode = state.grid[start.y][start.x];
-    const endNode = state.grid[end.y][end.x];
+    const startNode = grid[start.y][start.x];
+    const endNode = grid[end.y][end.x];
 
-    for(let y = 0; y < state.grid.length; y++) {
-        for(let x = 0; x < state.grid[y].length; x++) {
-            const node = state.grid[y][x];
+    for(let y = 0; y < grid.length; y++) {
+        for(let x = 0; x < grid[y].length; x++) {
+            const node = grid[y][x];
             node.g = Infinity;
             node.f = Infinity;
             node.parent = null;
@@ -66,15 +66,15 @@ export function findPath(start, end) {
 }
 
 function getNeighbors(node) {
-    const { state } = G;
+    const { grid } = G.state;
     const neighbors = [];
     const { x, y } = node;
     const gridW = CONFIG.WORLD_WIDTH / CONFIG.GRID_SIZE;
     const gridH = CONFIG.WORLD_HEIGHT / CONFIG.GRID_SIZE;
 
-    if (x > 0) neighbors.push(state.grid[y][x - 1]);
-    if (x < gridW - 1) neighbors.push(state.grid[y][x + 1]);
-    if (y > 0) neighbors.push(state.grid[y - 1][x]);
-    if (y < gridH - 1) neighbors.push(state.grid[y + 1][x]);
+    if (x > 0) neighbors.push(grid[y][x - 1]);
+    if (x < gridW - 1) neighbors.push(grid[y][x + 1]);
+    if (y > 0) neighbors.push(grid[y - 1][x]);
+    if (y < gridH - 1) neighbors.push(grid[y + 1][x]);
     return neighbors;
 }
