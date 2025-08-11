@@ -30,10 +30,10 @@ export const OutlineDrawer = {
         ctx.save();
         ctx.translate(Math.floor(entity.x), Math.floor(entity.y));
 
-        // OPRAVA 1: Zpřesněná logika pro nalezení správného obrázku pro hromádky surovin.
+        // FIX 1: Refined logic to find the correct image for resource piles.
         const assetKey = entity.type === 'resource_pile' ? entity.resourceType : entity.type;
         
-        // OPRAVA 2: Správná cesta k načteným obrázkům v G.state.
+        // FIX 2: Correct path to the loaded user assets in G.state.
         const img = G.state.loadedUserAssets[assetKey];
 
         if (img) {
@@ -41,7 +41,7 @@ export const OutlineDrawer = {
             const drawHeight = (img.height / img.width) * drawWidth;
             ctx.drawImage(img, -drawWidth / 2, -drawHeight + entity.radius * 0.5, drawWidth, drawHeight);
         } else {
-            // Záložní zobrazení, pokud obrázek chybí
+            // Fallback display if an image is missing
             ctx.strokeStyle = this.colors.placeholder;
             ctx.fillStyle = this.colors.placeholder;
             ctx.lineWidth = 2;
