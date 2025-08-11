@@ -1,38 +1,53 @@
+// Barevná paleta pro celou hru. Zde můžete snadno měnit barvy.
 const PALETTE = {
-    'T': 'transparent',
-    'BL': '#2d3748',
-    skin: '#ffebd1',
-    shirt: '#e2e8f0',
-    pants: '#64748b',
-    tree_trunk: '#6d4c41',
+    // Příroda
+    grass_dark: '#588157',
+    grass_light: '#a3b18a',
+    tree_trunk: '#4e342e',
     tree_leaves: '#4caf50',
     tree_leaves_dark: '#388e3c',
     stone: '#a1a1aa',
     stone_dark: '#71717a',
+    water: '#457b9d',
+    dirt: '#a16207',
+
+    // Postavy (šablona)
+    skin: '#ffebd1',
+    shirt: '#e2e8f0',
+    pants: '#64748b',
+
+    // Budovy
     wood_wall: '#d2b48c',
     wood_roof: '#a16207',
     wood_dark: '#8c6d31',
+    
+    // Suroviny a UI
     food_straw: '#facc15',
-    food_bag: '#d2b48c',
     ui_red: '#ef4444',
     ui_blue: '#3b82f6',
     ui_green: '#22c55e',
     ui_yellow: '#eab308',
     ui_gray: '#6b7280',
     ui_orange: '#f97316',
+    ui_main_text: '#f1f5f9',
 };
 
-function p(ctx, x, y) { ctx.fillRect(x, y, 1, 1); }
+// Funkce, která nakreslí jeden pixel (zvětšený čtverec)
+function p(ctx, x, y) {
+    ctx.fillRect(x, y, 1, 1);
+}
 
+// Databáze "receptů" pro každý sprite
 export const SPRITE_GENERATORS = {
     _canvasSize: { default: 16 },
+
     settler: (ctx) => {
-        ctx.fillStyle = PALETTE.skin;
+        ctx.fillStyle = PALETTE.skin; // Hlava
         p(ctx, 7, 1); p(ctx, 8, 1); p(ctx, 7, 2); p(ctx, 8, 2);
-        ctx.fillStyle = PALETTE.shirt;
+        ctx.fillStyle = PALETTE.shirt; // Tělo
         for(let y=3; y<8; y++) for(let x=6; x<10; x++) p(ctx, x, y);
         p(ctx,5,4); p(ctx, 10, 4);
-        ctx.fillStyle = PALETTE.pants;
+        ctx.fillStyle = PALETTE.pants; // Kalhoty
         for(let y=8; y<11; y++) for(let x=6; x<10; x++) p(ctx, x, y);
         p(ctx, 6, 11); p(ctx, 9, 11);
     },
@@ -84,7 +99,6 @@ export const SPRITE_GENERATORS = {
         ctx.fillStyle = PALETTE.food_straw;
         p(ctx, 4,9); p(ctx, 5,9); p(ctx, 4,10); p(ctx, 5,10);
     },
-    // Ikony a další objekty
     wood: (ctx) => { ctx.fillStyle = PALETTE.tree_trunk; for(let y=5; y<11; y++) for(let x=4; x<12; x++) p(ctx, x, y); },
     food: (ctx) => { ctx.fillStyle = PALETTE.food_straw; for(let y=5; y<11; y++) for(let x=4; x<12; x++) p(ctx, x, y); },
     day: (ctx) => { ctx.fillStyle = PALETTE.ui_yellow; for(let y=4; y<12; y++) for(let x=4; x<12; x++) p(ctx, x, y); },
@@ -95,7 +109,6 @@ export const SPRITE_GENERATORS = {
     pause: (ctx) => { ctx.fillStyle = PALETTE.ui_main_text; for(let y=4; y<12; y++) { p(ctx,5,y); p(ctx,6,y); p(ctx,9,y); p(ctx,10,y); } },
     play: (ctx) => { ctx.fillStyle = PALETTE.ui_main_text; p(ctx,5,4);p(ctx,6,5);p(ctx,7,6);p(ctx,8,7);p(ctx,7,8);p(ctx,6,9);p(ctx,5,10); },
 };
-// Aliasy a doplnění
 SPRITE_GENERATORS.wood_pile = SPRITE_GENERATORS.wood;
 SPRITE_GENERATORS.stone_pile = SPRITE_GENERATORS.stone;
 SPRITE_GENERATORS.food_pile = SPRITE_GENERATORS.food;
