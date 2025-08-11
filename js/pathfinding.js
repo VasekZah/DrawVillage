@@ -50,7 +50,9 @@ export function findPath(start, end) {
         for (const neighbor of neighbors) {
             if (closedSet.has(neighbor) || !neighbor.walkable) continue;
             
-            let tempG = current.g + (1 + neighbor.wear / 255);
+            const distance = Math.hypot(current.x - neighbor.x, current.y - neighbor.y);
+            let tempG = current.g + distance * (1 + neighbor.wear / 255);
+
             if (tempG < neighbor.g) {
                 neighbor.g = tempG;
                 neighbor.h = Math.hypot(neighbor.x - endNode.x, neighbor.y - endNode.y);
@@ -72,9 +74,24 @@ function getNeighbors(node) {
     const gridW = CONFIG.WORLD_WIDTH / CONFIG.GRID_SIZE;
     const gridH = CONFIG.WORLD_HEIGHT / CONFIG.GRID_SIZE;
 
-    if (x > 0) neighbors.push(grid[y][x - 1]);
-    if (x < gridW - 1) neighbors.push(grid[y][x + 1]);
-    if (y > 0) neighbors.push(grid[y - 1][x]);
-    if (y < gridH - 1) neighbors.push(grid[y + 1][x]);
+    const directions = [
+        [-1, 0], [1, 0], [0, -1], [0, 1], // Kardinální
+        [-1, -1], [1, -1], [-1, 1], [1, 1]  // Diagonální
+    ];
+    
+    for (const [dx, dy] of directions) {
+        const newX = x + dx;
+        const newY = y + dy;
+
+        if (newX >= 0 && newX < gridW && newY >= 0 && newY < gridH) {
+            // Zabráníme "řezání rohů" přes neprůchodné bloky
+            if (Math.abs(dx) === 1 && Math.abs(dy) === 1) {
+                if (!grid[y][x + dx].walkable || !grid[y + dy][x].walkable) {
+                    continue;
+                }
+            }
+            neighbors.push(grid[newY][newX]);
+        }
+    }
     return neighbors;
 }
