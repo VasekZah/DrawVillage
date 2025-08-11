@@ -149,6 +149,7 @@ function selectAsset(index) {
     updateButtonStates();
 }
 
+// --- UPDATED --- Automatically fills the drawing with a gray color
 function cropAndSave() {
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = pixels.data;
@@ -171,15 +172,35 @@ function cropAndSave() {
     maxY = Math.min(canvas.height, maxY + padding);
     const width = maxX - minX;
     const height = maxY - minY;
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = width;
-    tempCanvas.height = height;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(canvas, minX, minY, width, height, 0, 0, width, height);
-    return tempCanvas.toDataURL();
+
+    // Create a temporary canvas with the cropped drawing
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = width;
+    cropCanvas.height = height;
+    const cropCtx = cropCanvas.getContext('2d');
+    cropCtx.drawImage(canvas, minX, minY, width, height, 0, 0, width, height);
+
+    // Create a final canvas to add the fill color
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = width;
+    finalCanvas.height = height;
+    const finalCtx = finalCanvas.getContext('2d');
+
+    // 1. Draw the gray fill
+    finalCtx.fillStyle = '#E5E7EB'; // A light gray color
+    finalCtx.fillRect(0, 0, width, height);
+
+    // 2. Use the outline as a mask
+    finalCtx.globalCompositeOperation = 'destination-in';
+    finalCtx.drawImage(cropCanvas, 0, 0);
+
+    // 3. Draw the black outline back on top
+    finalCtx.globalCompositeOperation = 'source-over';
+    finalCtx.drawImage(cropCanvas, 0, 0);
+
+    return finalCanvas.toDataURL();
 }
 
-// --- RE-ADDED THIS FUNCTION ---
 function handleExport() {
     if (Object.keys(G.state.userAssets).length === 0) {
         alert("Nothing to export. Draw something first.");
@@ -239,7 +260,7 @@ export function initDrawingModal(startGameCallback) {
         if (e.target.tagName === 'LI') selectAsset(parseInt(e.target.dataset.index));
     });
     clearBtn.addEventListener('click', () => clearCanvas(false));
-    exportBtn.addEventListener('click', handleExport); // This line will now work correctly
+    exportBtn.addEventListener('click', handleExport);
     importBtn.addEventListener('click', () => importFileInput.click());
     importFileInput.addEventListener('change', handleImport);
     saveBtn.addEventListener('click', () => {
