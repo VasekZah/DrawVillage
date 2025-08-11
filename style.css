@@ -1,14 +1,55 @@
-body { font-family: 'Inter', sans-serif; overflow: hidden; background-color: #1f2937; }
-canvas { background-color: #1a2e26; border-radius: 0.5rem; border: 2px solid #a3b18a; cursor: default; }
-canvas.build-mode { cursor: crosshair; }
-.ui-panel { background-color: rgba(42, 60, 53, 0.9); --tw-bg-opacity: 1; background-color: rgba(42, 60, 53, var(--tw-bg-opacity)); backdrop-filter: blur(8px); border: 1px solid #a3b18a; }
-.bg-panel { background-color: rgba(42, 60, 53, 0.9); }
-.btn-action { background-color: #588157; color: white; transition: background-color 0.3s, transform 0.1s; }
-.btn-action:hover:not(:disabled) { background-color: #3a5a40; }
-.btn-action:active:not(:disabled) { transform: scale(0.95); }
-.btn-action:disabled { background-color: #52525b; cursor: not-allowed; color: #a1a1aa; }
-.job-control button { background-color: #3a5a40; width: 28px; height: 28px; font-size: 1.2rem; line-height: 1; border-radius: 0.25rem; }
-.job-control button:hover:not(:disabled) { background-color: #588157; }
-.job-control button:disabled { background-color: #52525b; cursor: not-allowed; }
-.scrollable-panel { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #588157 #344e41; }
-.tooltip { position: fixed; padding: 8px 12px; background-color: rgba(10, 10, 10, 0.9); color: white; border-radius: 6px; font-size: 14px; pointer-events: none; z-index: 1000; display: none; }
+/* Reset a základní nastavení */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    font-family: Arial, sans-serif;
+    background-color: #222;
+    color: #fff;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+header, footer {
+    background-color: #333;
+    padding: 10px;
+    text-align: center;
+}
+
+main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+canvas {
+    background-color: #111;
+    display: block;
+    border: 1px solid #555;
+}
+
+/* Tlačítka a UI */
+button {
+    background-color: #555;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    margin: 5px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s ease-in-out;
+}
+
+button:hover {
+    background-color: #777;
+}
