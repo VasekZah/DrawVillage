@@ -410,6 +410,7 @@ const resizeCanvas = () => {
 };
 
 // --- START GAME ---
+// Wait for the DOM to be fully loaded before initializing the modal
 document.addEventListener('DOMContentLoaded', () => {
     initDrawingModal(init);
 });
