@@ -1,15 +1,15 @@
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
-import { OutlineDrawer } from './drawing.js';
+import { SpriteDrawer } from './drawing.js'; // OPRAVENO ZDE
 import { findClosestEntity, removeEntity, findWalkableNeighbor, worldToGrid, addEntity, setNotification, isTargeted } from './helpers.js';
 import { findPath } from './pathfinding.js';
 import { TaskActions } from './taskLogic.js';
-import { getAssetImg } from './uiHelpers.js';
+import { getUiIcon } from './uiHelpers.js';
 
 class Entity {
     constructor(type, x, y) { this.id = G.state.nextId++; this.type = type; this.x = x; this.y = y; this.radius = 16; }
     draw() {
-        OutlineDrawer.draw(G.ctx, this);
+        SpriteDrawer.draw(G.ctx, this); // OPRAVENO ZDE
     }
     update(deltaTime) {}
     getTooltip() { return this.type; }
@@ -18,7 +18,6 @@ class Entity {
 export class Humanoid extends Entity {
     constructor(type, x, y) {
         super(type, x, y);
-        // --- ADJUSTED SIZE --- Make humanoids smaller
         this.radius = 12;
         this.task = null; this.path = []; this.isMoving = false;
         this.hunger = 0; this.homeId = null; this.taskCooldown = 0;
@@ -172,7 +171,12 @@ export class Settler extends Humanoid {
         }
     }
     getTooltip() {
-        let tooltip = `<b>Settler</b><br>Job: ${CONFIG.JOBS[this.job]?.name || 'Unemployed'}`;
+        let jobName = 'Unemployed';
+        if (this.job !== 'unemployed') {
+            const jobColor = CONFIG.JOBS[this.job]?.color || '#fff';
+            jobName = `<span style="color:${jobColor}; font-weight: bold;">${CONFIG.JOBS[this.job]?.name}</span>`;
+        }
+        let tooltip = `<b>Settler</b><br>Job: ${jobName}`;
         tooltip += `<br>Hunger: ${Math.floor(this.hunger)}%`;
         if (this.task) {
             tooltip += `<br>Task: ${this.task.description}`;
@@ -186,7 +190,6 @@ export class Child extends Humanoid {
     constructor(x, y) {
         super('child', x, y);
         this.age = 0;
-        // --- ADJUSTED SIZE --- Make children even smaller
         this.radius = 8;
     }
     update(deltaTime) {
@@ -253,7 +256,7 @@ export class Building extends Entity {
         let tooltip = `<b>${CONFIG.BUILDING_INFO[this.type].name}</b><br>${this.description}`;
         if (this.status !== 'operational') {
             tooltip += `<br>Status: ${this.status === 'blueprint' ? 'Awaiting materials' : 'Under Construction'} (${Math.floor(this.buildProgress)}%)`;
-            const needed = Object.entries(this.cost).map(([res, val]) => `${getAssetImg(res, 'inline-block w-4 h-4')} ${this.delivered[res]}/${val}`).join(', ');
+            const needed = Object.entries(this.cost).map(([res, val]) => `${getUiIcon(res, 'inline-block w-4 h-4')} ${this.delivered[res]}/${val}`).join(', ');
             tooltip += `<br>Materials: ${needed}`;
             if (this.status === 'blueprint') {
                 tooltip += `<br><br><span style="color: #e53e3e;">Right-click to cancel.</span>`;
