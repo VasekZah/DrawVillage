@@ -1,3 +1,5 @@
+// js/main.js
+
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 import { Settler, Building, WorldObject, Child } from './classes.js';
@@ -5,19 +7,11 @@ import { OutlineDrawer } from './drawing.js';
 import { manageTasks } from './taskManager.js';
 import { screenToWorld, addEntity, removeEntity, setNotification, addBuilding, findClosestEntity, createResourcePile } from './helpers.js';
 import { initDrawingModal } from './drawingModal.js';
+import { getAssetImg } from './uiHelpers.js'; // <-- Importujeme novou funkci
 
-// Helper to create an image tag from a loaded asset
-function getAssetImg(name, classes = 'icon') {
-    const asset = G.loadedUserAssets[name];
-    if (asset) {
-        return `<img src="${asset.src}" class="${classes}" alt="${name}" />`;
-    }
-    return `<span class="${classes}">?</span>`; // Fallback
-}
-
-// --- INITIALIZATION ---
+// --- INICIALIZACE ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Populate the global object with all necessary DOM elements and contexts
+    // Nejprve přiřadíme všechny DOM elementy do G objektu
     Object.assign(G, {
         gameCanvas: document.getElementById('gameCanvas'),
         tooltipElement: document.getElementById('tooltip'),
@@ -33,9 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
             dayNightOverlay: document.getElementById('dayNightOverlay'),
             timeControls: document.getElementById('time-controls'),
         },
-        userAssets: {},
-        loadedUserAssets: {},
+        // Herní stav inicializujeme zde
         state: {
+            userAssets: {}, // Data URL z kreslení
+            loadedUserAssets: {}, // Načtené obrázky (Image objekty)
             resources: { wood: 50, stone: 20, food: 40 },
             entities: [], settlers: [], buildings: [], worldObjects: [], tasks: [], grid: [],
             camera: { x: CONFIG.WORLD_SIZE / 2, y: CONFIG.WORLD_SIZE / 2, zoom: 1.2 },
@@ -51,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     G.ctx = G.gameCanvas.getContext('2d', { alpha: false });
 
-    // Now that globals are set, initialize the drawing modal
+    // Až teď, když je G plně připraveno, spustíme kreslící okno
     initDrawingModal(init);
 });
 
@@ -223,7 +218,7 @@ function draw() {
         G.ctx.save();
         G.ctx.translate(x, y);
 
-        OutlineDrawer.draw(G.ctx, { type: G.state.buildMode, radius: info.size.w/2, size: info.size });
+        OutlineDrawer.draw(G.ctx, { type: G.state.buildMode, radius: info.size.w/2, size: info.size, x:0, y:0 });
 
         G.ctx.globalAlpha = 1.0;
         G.ctx.strokeStyle = '#2d3748';
@@ -392,10 +387,11 @@ function setupUI() {
     Object.entries(CONFIG.BUILDING_INFO).forEach(([id, info]) => {
         const button = document.createElement('button');
         button.className = 'btn p-2 rounded-lg w-full h-16 flex items-center justify-center relative text-center';
-        button.textContent = info.name;
-
+        
         const costString = Object.entries(CONFIG.BUILDING_COSTS[id]).map(([res, val]) => `${getAssetImg(res, 'inline-block w-4 h-4')} ${val}`).join(' ');
         const tooltipContent = `<b>${info.name}</b><br>${info.description}<br>Cost: ${costString}`;
+        
+        button.innerHTML = `<span>${info.name}</span><div class="build-btn-canvas absolute bottom-1 right-1">${getAssetImg(id, 'w-8 h-8')}</div>`;
         button.dataset.tooltip = tooltipContent;
 
         button.addEventListener('click', () => {
