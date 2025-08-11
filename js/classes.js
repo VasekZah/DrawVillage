@@ -1,31 +1,15 @@
-// js/classes.js
-
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 import { OutlineDrawer } from './drawing.js';
 import { findClosestEntity, removeEntity, findWalkableNeighbor, worldToGrid, addEntity, setNotification, isTargeted } from './helpers.js';
 import { findPath } from './pathfinding.js';
-import { TaskActions } from './taskLogic.js';
-import { getAssetImg } from './uiHelpers.js'; // <-- PŘIDANÝ IMPORT
+import { TaskActions } from './tasklogic.js';
+import { getAssetImg } from './uiHelpers.js';
 
-// --- CORE CLASSES ---
 class Entity {
     constructor(type, x, y) { this.id = G.state.nextId++; this.type = type; this.x = x; this.y = y; this.radius = 16; }
     draw() {
-        // Vykreslení pomocí uživatelského assetu, pokud existuje
-        const assetKey = this.type.startsWith('resource_') ? this.resourceType : this.type;
-        const asset = G.state.loadedUserAssets[assetKey];
-        if (asset) {
-            OutlineDrawer.draw(G.ctx, this);
-        } else { // Jinak fallback na placeholder
-            G.ctx.save();
-            G.ctx.translate(this.x, this.y);
-            G.ctx.strokeStyle = '#e53e3e';
-            G.ctx.lineWidth = 2;
-            const r = this.radius;
-            G.ctx.strokeRect(-r/2, -r/2, r, r);
-            G.ctx.restore();
-        }
+        OutlineDrawer.draw(G.ctx, this);
     }
     update(deltaTime) {}
     getTooltip() { return this.type; }
@@ -41,7 +25,6 @@ export class Humanoid extends Entity {
         if (this.taskCooldown > 0) this.taskCooldown -= deltaTime;
         this.hunger += (deltaTime / CONFIG.DAY_LENGTH_MS) * CONFIG.HUNGER_PER_DAY;
         if (this.hunger >= 100) { this.die(); return; }
-
         if (this.task) {
             this.executeTask(deltaTime);
         } else if (this.taskCooldown <= 0) {
@@ -64,7 +47,7 @@ export class Humanoid extends Entity {
     }
     executeTask(deltaTime) {
         if (this.path && this.path.length > 0) {
-            if (this.moveAlongPath(deltaTime)) { // Arrived
+            if (this.moveAlongPath(deltaTime)) {
                 if (this.task) this.task.onArrival(this);
             }
         } else if (this.task) {
@@ -87,7 +70,6 @@ export class Humanoid extends Entity {
         }
         const startNode = worldToGrid(this.x, this.y);
         let endNode = null;
-
         if (this.task.target instanceof Building && this.task.target.accessPoints.length > 0) {
             let closestPoint = null;
             let minDistanceSq = Infinity;
@@ -104,7 +86,6 @@ export class Humanoid extends Entity {
         } else {
             endNode = findWalkableNeighbor(worldToGrid(this.task.target.x, this.task.target.y));
         }
-
         if (startNode && endNode) {
             this.path = findPath(startNode, endNode);
             if (!this.path) {
@@ -121,7 +102,6 @@ export class Humanoid extends Entity {
         } else if (successCooldown) {
             this.taskCooldown = 500;
         }
-
         if (this.task && this.task.assignee === this) {
             this.task.assignee = null;
         }
@@ -137,7 +117,6 @@ export class Humanoid extends Entity {
         const dist = Math.hypot(dx, dy);
         const speedBonus = CONFIG.PATH_SPEED_BONUS * (targetNode.wear || 0);
         const currentSpeed = CONFIG.SETTLER_SPEED * (1 + speedBonus) * (deltaTime / 16);
-
         if (dist < currentSpeed) {
             this.x = targetX; this.y = targetY;
             const prevNode = this.path.shift();
@@ -174,7 +153,6 @@ export class Settler extends Humanoid {
         if (this.task || this.taskCooldown > 0) return;
         super.findTask();
         if (this.task) return;
-
         if (this.job === 'unemployed') {
             const pileToHaul = findClosestEntity(this, o => o.type === 'resource_pile' && !isTargeted(o, 'haul_resource_pile'));
             if (pileToHaul) {
@@ -182,23 +160,21 @@ export class Settler extends Humanoid {
                 return;
             }
         }
-
         const availableTask = G.state.tasks.find(t => t.status === 'pending' && t.isJobAllowed(this.job) && t.canBeReached(this));
         if (availableTask) {
             this.setTask(availableTask);
             return;
         }
-
         if (this.job === 'unemployed') {
             this.setTask(new Task('wander', null));
         }
     }
     getTooltip() {
-        let tooltip = `<b>Settler</b>\nJob: ${CONFIG.JOBS[this.job]?.name || 'Unemployed'}`;
-        tooltip += `\nHunger: ${Math.floor(this.hunger)}%`;
+        let tooltip = `<b>Settler</b><br>Job: ${CONFIG.JOBS[this.job]?.name || 'Unemployed'}`;
+        tooltip += `<br>Hunger: ${Math.floor(this.hunger)}%`;
         if (this.task) {
-            tooltip += `\nTask: ${this.task.description}`;
-            if (this.task.payload) tooltip += `\nCarrying: ${this.task.payload.amount} ${this.task.payload.type}`;
+            tooltip += `<br>Task: ${this.task.description}`;
+            if (this.task.payload) tooltip += `<br>Carrying: ${this.task.payload.amount} ${this.task.payload.type}`;
         }
         return tooltip;
     }
@@ -241,7 +217,7 @@ export class Child extends Humanoid {
         removeEntity(this);
     }
     getTooltip() {
-        return `<b>Child</b>\nAge: ${this.age.toFixed(1)} / ${CONFIG.CHILD_GROW_UP_AGE_DAYS} days\nHunger: ${Math.floor(this.hunger)}%`;
+        return `<b>Child</b><br>Age: ${this.age.toFixed(1)} / ${CONFIG.CHILD_GROW_UP_AGE_DAYS} days<br>Hunger: ${Math.floor(this.hunger)}%`;
     }
 }
 
@@ -271,21 +247,21 @@ export class Building extends Entity {
     isUnderConstruction() { return this.status !== 'operational'; }
     hasMaterials() { return Object.entries(this.cost).every(([res, val]) => this.delivered[res] >= val); }
     getTooltip() {
-        let tooltip = `<b>${CONFIG.BUILDING_INFO[this.type].name}</b>\n${this.description}`;
+        let tooltip = `<b>${CONFIG.BUILDING_INFO[this.type].name}</b><br>${this.description}`;
         if (this.status !== 'operational') {
-            tooltip += `\nStatus: ${this.status === 'blueprint' ? 'Awaiting materials' : 'Under Construction'} (${Math.floor(this.buildProgress)}%)`;
+            tooltip += `<br>Status: ${this.status === 'blueprint' ? 'Awaiting materials' : 'Under Construction'} (${Math.floor(this.buildProgress)}%)`;
             const needed = Object.entries(this.cost).map(([res, val]) => `${getAssetImg(res, 'inline-block w-4 h-4')} ${this.delivered[res]}/${val}`).join(', ');
-            tooltip += `\nMaterials: ${needed}`;
+            tooltip += `<br>Materials: ${needed}`;
             if (this.status === 'blueprint') {
-                tooltip += `\n\n<span style="color: #e53e3e;">Right-click to cancel.</span>`;
+                tooltip += `<br><br><span style="color: #e53e3e;">Right-click to cancel.</span>`;
             }
         }
         if (this.type === 'farm' && this.status === 'operational') {
             const stateText = { empty: 'Empty', sown: 'Sown', growing: `Growing (${Math.floor(this.growth * 100)}%)`, ready: 'Ready to Harvest' };
-            tooltip += `\nField: ${stateText[this.farmState]}`;
+            tooltip += `<br>Field: ${stateText[this.farmState]}`;
         }
         if (this.type === 'hut' && this.status === 'operational') {
-            tooltip += `\nResidents: ${this.residents.length} / ${CONFIG.BUILDING_INFO.hut.housing}`;
+            tooltip += `<br>Residents: ${this.residents.length} / ${CONFIG.BUILDING_INFO.hut.housing}`;
         }
         return tooltip;
     }
@@ -312,10 +288,10 @@ export class WorldObject extends Entity {
         removeEntity(this);
     }
     getTooltip() {
-        if (this.type === 'resource_pile') return `<b>Pile of ${CONFIG.RESOURCES_INFO[this.resourceType].name}</b>\nAmount: ${this.amount}`;
-        if (this.type === 'sapling') return `<b>Sapling</b>\nGrowing...`;
+        if (this.type === 'resource_pile') return `<b>Pile of ${CONFIG.RESOURCES_INFO[this.resourceType].name}</b><br>Amount: ${this.amount}`;
+        if (this.type === 'sapling') return `<b>Sapling</b><br>Growing...`;
         const typeName = { tree: 'Tree', stone: 'Stone Deposit', berryBush: 'Berry Bush'}[this.type] || this.type;
-        return `<b>${typeName}</b>\nAmount: ${this.amount}`;
+        return `<b>${typeName}</b><br>Amount: ${this.amount}`;
     }
 }
 
@@ -366,7 +342,7 @@ export class Task {
         return required === job;
     }
     canBeReached(settler) {
-        if (!this.target) return true; // Wander task etc.
+        if (!this.target) return true;
         const startNode = worldToGrid(settler.x, settler.y);
         let endNode;
          if (this.target instanceof Building) {
