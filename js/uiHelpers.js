@@ -1,5 +1,3 @@
-// js/uiHelpers.js
-
 import { G } from './globals.js';
 
 /**
@@ -9,8 +7,8 @@ import { G } from './globals.js';
  * @returns {string} - HTML string.
  */
 export function getAssetImg(name, classes = 'icon') {
-    // Prohledáváme G.loadedUserAssets, kde jsou již načtené obrázky
-    const asset = G.loadedUserAssets[name];
+    // Zde je oprava - přistupujeme přes G.state
+    const asset = G.state.loadedUserAssets[name];
     if (asset && asset.src) {
         return `<img src="${asset.src}" class="${classes}" alt="${name}" />`;
     }
