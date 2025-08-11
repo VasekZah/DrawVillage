@@ -1,45 +1,35 @@
 <!DOCTYPE html>
 <html lang="cs">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Last Hearth - Vylepšená Verze</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Moje Aplikace</title>
+    <link rel="stylesheet" href="style.css" />
 </head>
-<body class="text-white flex flex-col items-center justify-center h-screen p-4">
+<body>
+    <div id="app">
+        <header>
+            <h1>Moje Aplikace</h1>
+        </header>
 
-    <div class="w-full max-w-screen-2xl mx-auto flex flex-col lg:flex-row gap-4 h-[95vh]">
-        <div class="flex-grow h-full relative">
-            <canvas id="gameCanvas" class="w-full h-full"></canvas>
-        </div>
-        <div class="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
-            <div class="ui-panel p-4 rounded-lg shadow-lg">
-                <h2 class="text-xl font-bold border-b border-gray-500 pb-2 mb-3">Zdroje Osady</h2>
-                <div class="grid grid-cols-2 gap-x-4 text-lg">
-                    <div><span id="icon-wood"></span> Dřevo: <span id="woodCount">0</span></div>
-                    <div><span id="icon-stone"></span> Kámen: <span id="stoneCount">0</span></div>
-                    <div><span id="icon-food"></span> Jídlo: <span id="foodCount">0</span></div>
-                </div>
-                <div class="mt-2 pt-2 border-t border-gray-600 text-sm text-gray-300">
-                    <div class="flex justify-between"><span><span id="icon-settler"></span> Osadníci:</span> <span id="settlerCount">0</span></div>
-                    <div class="flex justify-between"><span><span id="icon-housing"></span> Kapacita:</span> <span id="housingCapacity">0</span></div>
-                    <div class="flex justify-between"><span><span id="icon-day"></span> Den:</span> <span id="dayCount">1</span></div>
-                </div>
-            </div>
-            <div id="job-management" class="ui-panel p-4 rounded-lg shadow-lg scrollable-panel">
-                <h2 class="text-xl font-bold border-b border-gray-500 pb-2 mb-3 sticky top-0 bg-panel">Správa Práce</h2>
-                <div class="space-y-2"></div>
-            </div>
-            <div id="build-management" class="ui-panel p-4 rounded-lg shadow-lg scrollable-panel">
-                <h2 class="text-xl font-bold border-b border-gray-500 pb-2 mb-3 sticky top-0 bg-panel">Stavby a Vylepšení</h2>
-                <div class="space-y-2"></div>
-            </div>
-            <div id="notificationArea" class="text-center text-yellow-400 font-semibold h-6"></div>
-        </div>
+        <main>
+            <!-- Obsah aplikace -->
+            <canvas id="canvas"></canvas>
+        </main>
+
+        <footer>
+            <p>&copy; 2025 Moje Aplikace</p>
+        </footer>
     </div>
-    <div id="tooltip" class="tooltip"></div>
-    <script type="module" src="js/main.js"></script>
+
+    <!-- Načítání skriptů ve správném pořadí -->
+    <script src="js/config.js"></script>
+    <script src="js/globals.js"></script>
+    <script src="js/helpers.js"></script>
+    <script src="js/uiHelpers.js"></script>
+    <script src="js/classes.js"></script>
+    <script src="js/drawing.js"></script>
+    <script src="js/pathfinding.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
