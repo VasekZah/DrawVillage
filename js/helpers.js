@@ -74,7 +74,7 @@ export function findWalkableNeighbor(gridPos, startPos) {
     
     const queue = [node];
     const visited = new Set([`${node.x},${node.y}`]);
-    const maxSearch = 200; // Limit search area to prevent lag
+    const maxSearch = 200;
     let count = 0;
     
     while (queue.length > 0 && count < maxSearch) {
