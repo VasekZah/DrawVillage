@@ -491,7 +491,6 @@ export class Building extends Entity {
         }
     }
 }
-
 export class WorldObject extends Entity {
     constructor(type, x, y, amountOverride = null) {
         super();
