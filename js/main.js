@@ -82,7 +82,6 @@ function init() {
     gameLoop();
 }
 
-// ... Kód pro `populateUI` a další pomocné funkce zůstává stejný ...
 function populateUI() { 
     ui.iconWood.textContent = getUiIcon('wood');
     ui.iconStone.textContent = getUiIcon('stone');
@@ -134,19 +133,13 @@ function populateUI() {
 let lastTime = 0;
 let timeAccumulator = 0;
 
-// ==================================================================
-// OPRAVA HERNÍ SMYČKY A ČASOVÁNÍ
-// ==================================================================
 function gameLoop(timestamp) {
     let deltaTime = timestamp - lastTime || 0;
     lastTime = timestamp;
 
-    // ZDE JE KLÍČOVÁ OPRAVA č.1: Omezení deltaTime, aby se zabránilo "teleportaci" osadníků
-    // po návratu do okna prohlížeče.
     deltaTime = Math.min(deltaTime, 100); 
 
     timeAccumulator += deltaTime;
-    // Použití `while` smyčky je robustnější pro případ velkého zmeškaného času.
     while (timeAccumulator >= CONFIG.DAY_LENGTH_MS) {
         dailyUpdate();
         timeAccumulator -= CONFIG.DAY_LENGTH_MS;
@@ -161,7 +154,6 @@ function gameLoop(timestamp) {
 function dailyUpdate() {
     const { state } = G;
     state.day++;
-    // Reproduction
     const totalHousingCapacity = state.buildings.reduce((sum, b) => sum + ((b.type === 'hut' || b.type === 'stone_house') && !b.isUnderConstruction && !b.isUpgrading ? CONFIG.BUILDINGS[b.type].housing : 0), 0);
     if (state.settlers.length < totalHousingCapacity) {
         const fertileHuts = state.buildings.filter(b => (b.type === 'hut' || b.type === 'stone_house') && b.reproductionCooldown <= 0 && b.residents.filter(r => !r.isChild).length >= 2);
@@ -175,7 +167,6 @@ function dailyUpdate() {
             setNotification('Narodil se nový osadník!');
         }
     }
-    // Animal Reproduction
     if (state.animals.length < CONFIG.MAX_ANIMALS && Math.random() < CONFIG.ANIMAL_REPRODUCTION_CHANCE) {
         const parent = state.animals[Math.floor(Math.random() * state.animals.length)];
         if (parent) {
@@ -183,7 +174,6 @@ function dailyUpdate() {
             state.animals.push(newAnimal);
         }
     }
-    // Path Decay
     for(let y = 0; y < state.grid.length; y++) for(let x = 0; x < state.grid[y].length; x++) {
         const tile = state.grid[y][x];
         if (tile.wear > 0) {
@@ -206,7 +196,6 @@ function update(deltaTime) {
     updateHoveredObject();
 }
 
-// ... Ostatní funkce (`assignJobs`, `updateHoveredObject`, `draw`, `updateUIDisplay` atd.) zůstávají beze změny ...
 function assignJobs() { 
     const { state } = G;
     const availableAdults = state.settlers.filter(s => !s.isChild);
@@ -235,6 +224,7 @@ function assignJobs() {
         }
     });
 }
+
 function updateCamera(deltaTime) {
     const { state } = G;
     const panSpeed = (CONFIG.CAMERA_PAN_SPEED / state.camera.zoom) * (deltaTime / 16.67);
@@ -246,6 +236,7 @@ function updateCamera(deltaTime) {
     state.camera.x = Math.max(0, Math.min(CONFIG.WORLD_WIDTH - canvas.width / state.camera.zoom, state.camera.x));
     state.camera.y = Math.max(0, Math.min(CONFIG.WORLD_HEIGHT - canvas.height / state.camera.zoom, state.camera.y));
 }
+
 function updateHoveredObject() {
     const { state } = G;
     const worldMouse = screenToWorld(state.mousePos.x, state.mousePos.y);
@@ -262,6 +253,7 @@ function updateHoveredObject() {
         }
     }
 }
+
 function drawFullGround() {
     groundCtx.clearRect(0,0, groundCanvas.width, groundCanvas.height);
     for (let y = 0; y < G.state.grid.length; y++) {
@@ -270,6 +262,7 @@ function drawFullGround() {
         }
     }
 }
+
 function drawGroundTile(x, y) {
     const tile = G.state.grid[y][x];
     const wear = tile.wear;
@@ -302,6 +295,7 @@ function drawGroundTile(x, y) {
         groundCtx.fillRect(x * CONFIG.GRID_SIZE + 3, y * CONFIG.GRID_SIZE + 5, 3, 2);
     }
 }
+
 function draw() { 
     const { state } = G;
     ctx.save();
@@ -331,7 +325,11 @@ function draw() {
     });
 
     visibleObjects.sort((a, b) => a.y - b.y);
-    visibleObjects.forEach(o => o.draw());
+    visibleObjects.forEach(o => {
+        if (o.draw) {
+            o.draw();
+        }
+    });
 
     if (state.hoveredObject) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'; ctx.lineWidth = 1.5 / state.camera.zoom; ctx.beginPath();
@@ -374,6 +372,7 @@ function draw() {
     }
     updateUIDisplay();
 }
+
 function updateUIDisplay() { 
     ui.wood.textContent = Math.floor(G.state.resources.wood); 
     ui.stone.textContent = Math.floor(G.state.resources.stone);
@@ -407,6 +406,7 @@ function updateUIDisplay() {
         }
     });
 }
+
 function handleBuild(e) { 
     if (!G.state.buildMode) return;
     const worldMouse = screenToWorld(G.state.mousePos.x, G.state.mousePos.y);
@@ -431,6 +431,7 @@ function handleBuild(e) {
     canvas.classList.remove('build-mode'); 
     setNotification('');
 }
+
 function handleCancel(e) { 
     e.preventDefault();
     if (G.state.buildMode) {
@@ -464,7 +465,6 @@ function handleCancel(e) {
 
 function addEventListeners() {
     window.addEventListener('resize', resizeCanvas);
-    // ... ostatní event listenery beze změny
     ui.jobManagement.addEventListener('click', e => {
         if (e.target.tagName !== 'BUTTON') return;
         const job = e.target.dataset.job; const change = parseInt(e.target.dataset.change);
@@ -505,7 +505,6 @@ function addEventListeners() {
     window.addEventListener('keydown', e => { G.state.keysPressed[e.key.toLowerCase()] = true; });
     window.addEventListener('keyup', e => { G.state.keysPressed[e.key.toLowerCase()] = false; if(e.key === 'Escape') { G.state.buildMode = null; canvas.classList.remove('build-mode'); setNotification(''); }});
     
-    // ZNOVU OPRAVENÁ A OKOMENTOVANÁ LOGIKA PRO ZOOMOVÁNÍ
     canvas.addEventListener('wheel', e => {
         e.preventDefault();
         const worldPosBeforeZoom = screenToWorld(e.offsetX, e.offsetY);
