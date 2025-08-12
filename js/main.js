@@ -209,13 +209,13 @@ function assignJobs() {
         const quota = state.jobQuotas[jobId];
         let diff = quota - currentCount;
 
-        if (diff > 0) { // Need to assign more
+        if (diff > 0) {
             const laborers = availableAdults.filter(s => s.job === 'laborer');
             for(let i=0; i < Math.min(diff, laborers.length); i++) {
                 laborers[i].job = jobId;
                 laborers[i].resetTask();
             }
-        } else if (diff < 0) { // Need to unassign
+        } else if (diff < 0) {
             const workers = availableAdults.filter(s => s.job === jobId);
             for(let i=0; i < Math.min(-diff, workers.length); i++) {
                 workers[i].job = 'laborer';
