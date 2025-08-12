@@ -1,4 +1,3 @@
-// ... Kód na začátku souboru `classes.js` je stejný jako výše ...
 import { G } from './globals.js';
 import { CONFIG } from './config.js';
 import { PixelDrawer } from './drawing.js';
@@ -8,7 +7,6 @@ import { findClosest, worldToGrid, findWalkableNeighbor, updateGridForObject, se
 class Entity { /* ... */ }
 
 export class Settler extends Entity {
-    // ... konstruktor a ostatní metody ...
     constructor(name, x, y, isChild = false, age = 0) {
         super();
         this.name = name; this.x = x; this.y = y;
@@ -244,10 +242,6 @@ export class Settler extends Entity {
         }
         return false;
     }
-
-    // ==================================================================
-    // OPRAVA PŘEKLEPU V LOGICE NOŠENÍ
-    // ==================================================================
     performHaulPickup() {
         const site = this.secondaryTarget;
         if (!site || !G.state.buildings.includes(site)) { this.resetTask(); return; }
@@ -255,7 +249,6 @@ export class Settler extends Entity {
         const neededResource = Object.keys(site.cost).find(res => site.delivered[res] + (site.enRoute[res] || 0) < site.cost[res]);
         
         if (neededResource && G.state.resources[neededResource] > 0) {
-            // ZDE BYL PŘEKLEP: `(site.enRoute[res] || 0)` bylo opraveno na `(site.enRoute[neededResource] || 0)`
             const amountStillNeeded = site.cost[neededResource] - site.delivered[neededResource] - (site.enRoute[neededResource] || 0);
             const amountToCarry = Math.min(CONFIG.CARRY_CAPACITY, G.state.resources[neededResource], amountStillNeeded);
             
@@ -418,7 +411,6 @@ export class Settler extends Entity {
     }
 }
 
-// ... Zbytek souboru `classes.js` (třídy Building, WorldObject, atd.) je stejný jako v minulé odpovědi ...
 export class Building extends Entity { 
     constructor(type, x, y) {
         super();
@@ -499,6 +491,7 @@ export class Building extends Entity {
         }
     }
 }
+
 export class WorldObject extends Entity {
     constructor(type, x, y, amountOverride = null) {
         super();
