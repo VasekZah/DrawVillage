@@ -75,8 +75,8 @@ function getNeighbors(node) {
     const gridH = CONFIG.WORLD_HEIGHT / CONFIG.GRID_SIZE;
 
     const directions = [
-        [-1, 0], [1, 0], [0, -1], [0, 1], // Kardinální
-        [-1, -1], [1, -1], [-1, 1], [1, 1]  // Diagonální
+        [-1, 0], [1, 0], [0, -1], [0, 1],
+        [-1, -1], [1, -1], [-1, 1], [1, 1]
     ];
     
     for (const [dx, dy] of directions) {
@@ -84,7 +84,6 @@ function getNeighbors(node) {
         const newY = y + dy;
 
         if (newX >= 0 && newX < gridW && newY >= 0 && newY < gridH) {
-            // Zabráníme "řezání rohů" přes neprůchodné bloky
             if (Math.abs(dx) === 1 && Math.abs(dy) === 1) {
                 if (!grid[y][x + dx].walkable || !grid[y + dy][x].walkable) {
                     continue;
